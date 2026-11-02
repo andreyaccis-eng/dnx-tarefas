@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c1118">
+<title>DNX Digital Tarefas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Layout: barra lateral fixa com a marca em branco + área de trabalho rolável; no celular a barra vira topo com navegação horizontal */
+:root{
+  --bg:#0c1118; --side:#080c12; --surf:#131a24; --surf2:#19222f; --line:#223040; --line2:#2e3d51;
+  --fg:#e7ecf3; --mut:#8e9bb0; --dim:#5d6b80;
+  --acc:#3f8cff; --acc2:#86b5ff; --accbg:rgba(63,140,255,.14);
+  --red:#f1656c; --amber:#f2b543; --green:#3fcb8b; --violet:#a78bfa; --teal:#4fc4cf;
+  --redbg:rgba(241,101,108,.13); --amberbg:rgba(242,181,67,.13); --greenbg:rgba(63,203,139,.13);
+  --fd:'Manrope',ui-sans-serif,system-ui,sans-serif;
+  --fb:'DM Sans',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --fm:'DM Sans',ui-sans-serif,system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+img{max-width:100%}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--fb);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
+.app{display:grid;grid-template-columns:236px minmax(0,1fr);height:100%}
+
+/* sidebar */
+.side{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;padding:20px 14px 14px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 6px 22px;color:#fff;text-decoration:none}
+.logo{height:44px;width:auto;display:block}
+.wm{display:flex;flex-direction:column;line-height:1}
+.wm b{font:800 19px/1 var(--fd);letter-spacing:.02em;color:#fff}
+.wm span{font:500 9.5px/1 var(--fd);letter-spacing:.38em;color:#fff;margin-top:5px;opacity:.92}
+.gsel{display:flex;flex-direction:column;gap:6px;padding:0 6px 18px}
+.gsel label{font:600 10.5px var(--fb);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.gsel select{width:100%;background:var(--surf);font-weight:600}
+.nav .badge{margin-left:auto;font:700 10.5px var(--fb);background:var(--acc);color:#fff;border-radius:10px;padding:1px 7px}
+.chip.ges{background:rgba(79,196,207,.13);color:var(--teal)}
+.gtable{width:100%;border-collapse:collapse;font-size:13px}
+.gtable th{font:600 10.5px var(--fb);letter-spacing:.12em;text-transform:uppercase;color:var(--mut);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+.gtable td{padding:10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.gtable td.n{text-align:right}.gtable th.n{text-align:right}
+.inbox-msg{white-space:pre-wrap;word-break:break-word;font-size:13.5px;background:var(--surf2);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+.navlbl{font:600 10.5px var(--fb);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding:0 8px 8px}
+.nav{display:flex;flex-direction:column;gap:2px;overflow:auto}
+.nav button{display:flex;align-items:center;gap:10px;background:none;border:1px solid transparent;border-radius:8px;padding:8px 10px;color:var(--mut);text-align:left;font-weight:500;white-space:nowrap}
+.nav button svg{width:16px;height:16px;flex:none}
+.nav button:hover{color:var(--fg);background:var(--surf)}
+.nav button[aria-current="page"]{color:#fff;background:var(--accbg);border-color:rgba(63,140,255,.35)}
+.sidefoot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line)}
+.sync{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surf)}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
+.sync.ok i{background:var(--green);box-shadow:0 0 0 4px var(--greenbg)}
+.sync.warn i{background:var(--amber)}
+.sync b{display:block;font-size:12.5px;font-weight:600}
+.sync small{display:block;font-size:11.5px;color:var(--mut)}
+
+/* main */
+.main{min-width:0;min-height:0;overflow:auto;display:flex;flex-direction:column}
+.head{padding:22px max(20px,env(safe-area-inset-right,0px)) 14px max(20px,env(safe-area-inset-left,0px));display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line)}
+.eyebrow{font:600 10.5px var(--fb);letter-spacing:.16em;text-transform:uppercase;color:var(--acc2)}
+h1{font:700 24px/1.2 var(--fd);margin:4px 0 4px;letter-spacing:-.045em;text-wrap:balance}
+.lede{margin:0;color:var(--mut);max-width:62ch}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.vb{padding:18px max(20px,env(safe-area-inset-right,0px)) 40px max(20px,env(safe-area-inset-left,0px));flex:1;min-width:0}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:12px max(20px,env(safe-area-inset-right,0px)) 0 max(20px,env(safe-area-inset-left,0px))}
+.search{flex:1 1 240px;position:relative;min-width:0}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--dim)}
+.search input{width:100%;padding-left:34px}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);background:var(--surf);border-radius:9px;padding:8px 13px;font-weight:600;font-size:13px;color:var(--fg)}
+.btn:hover{border-color:var(--mut)}
+.btn svg{width:15px;height:15px}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.pri:hover{background:#5a9cff}
+.btn.ghost{background:none;border-color:transparent;color:var(--mut)}
+.btn.ghost:hover{color:var(--fg);background:var(--surf)}
+.btn.danger{color:var(--red)}
+.btn.danger[data-armed]{background:var(--red);color:#fff;border-color:var(--red)}
+.btn.sm{padding:5px 9px;font-size:12px;border-radius:7px}
+input[type=text],input[type=number],input[type=date],input[type=url],input:not([type]),select,textarea{background:var(--surf);border:1px solid var(--line2);border-radius:9px;padding:8px 11px;outline:none;min-width:0}
+input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+textarea{resize:vertical;min-height:72px;width:100%}
+select{padding-right:28px}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--mut)}
+label.f input,label.f select,label.f textarea{color:var(--fg);font-weight:400;font-size:14px}
+.hint{font-size:12px;color:var(--dim);font-weight:400}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.switch{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;cursor:pointer}
+.switch input{appearance:none;width:34px;height:20px;border-radius:20px;background:var(--line2);position:relative;cursor:pointer;flex:none;margin:0}
+.switch input::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left .15s}
+.switch input:checked{background:var(--acc)}
+.switch input:checked::after{left:17px}
+.menuwrap{position:relative}
+.menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--surf2);border:1px solid var(--line2);border-radius:10px;padding:5px;min-width:200px;z-index:30;box-shadow:0 14px 40px rgba(0,0,0,.45)}
+.menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:7px;font-size:13px}
+.menu button:hover{background:var(--line)}
+
+/* kanban */
+.board{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding-bottom:18px;min-height:calc(100% - 8px)}
+.col{flex:0 0 272px;background:var(--surf);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 210px);min-height:160px;transition:border-color .12s,background .12s}
+.col.over-drop{border-color:var(--acc);background:#152237}
+.colh{display:flex;align-items:center;gap:8px;padding:11px 10px 9px 12px}
+.colh i{width:8px;height:8px;border-radius:50%;flex:none}
+.colh h3{margin:0;font:600 11px var(--fb);letter-spacing:.1em;text-transform:uppercase;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count{font:500 11px var(--fm);background:var(--surf2);border:1px solid var(--line);border-radius:6px;padding:1px 7px;color:var(--mut);font-variant-numeric:tabular-nums}
+.iconbtn{background:none;border:0;color:var(--dim);padding:4px;border-radius:6px;display:inline-flex}
+.iconbtn:hover{color:var(--fg);background:var(--line)}
+.iconbtn svg{width:16px;height:16px}
+.cards{display:flex;flex-direction:column;gap:8px;padding:2px 10px 10px;overflow-y:auto;flex:1;min-height:40px}
+.colempty{border:1px dashed var(--line2);border-radius:9px;padding:16px 10px;text-align:center;color:var(--dim);font-size:12px}
+.colempty b{display:block;font:600 10.5px var(--fb);letter-spacing:.12em;color:var(--mut);margin-bottom:2px}
+.addrow{margin:0 10px 10px;border:1px dashed var(--line2);background:none;border-radius:9px;padding:7px;color:var(--mut);font-size:12.5px;display:flex;gap:6px;align-items:center;justify-content:center}
+.addrow:hover{color:var(--fg);border-color:var(--mut)}
+.addrow svg{width:14px;height:14px}
+.card{background:var(--surf2);border:1px solid var(--line);border-radius:10px;padding:10px 11px;cursor:pointer;display:flex;flex-direction:column;gap:7px;position:relative}
+.card:hover{border-color:var(--line2)}
+.card.dragging{opacity:.4}
+.card.focus{box-shadow:inset 3px 0 0 var(--acc)}
+.ct{display:flex;gap:9px;align-items:flex-start}
+.chk{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line2);background:none;flex:none;margin-top:1px;display:grid;place-items:center;padding:0}
+.chk:hover{border-color:var(--green)}
+.chk.on{background:var(--green);border-color:var(--green)}
+.chk svg{width:12px;height:12px;color:#0c1118}
+.ctitle{font-weight:600;font-size:13.5px;line-height:1.35;word-break:break-word;min-width:0}
+.done .ctitle{text-decoration:line-through;color:var(--mut)}
+.meta{display:flex;flex-wrap:wrap;gap:5px;padding-left:27px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;border-radius:6px;padding:2px 7px;background:var(--line);color:var(--mut);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.chip svg{width:11px;height:11px}
+.chip.alta{background:var(--redbg);color:var(--red)}
+.chip.media{background:var(--amberbg);color:var(--amber)}
+.chip.baixa{background:var(--accbg);color:var(--acc2)}
+.chip.late{color:var(--red)}
+.chip.proj{background:none;border:1px solid var(--line2);color:var(--fg)}
+.chip.lbl{background:rgba(167,139,250,.14);color:var(--violet)}
+.chip.ok{background:var(--greenbg);color:var(--green)}
+.mono{font-family:var(--fm);font-variant-numeric:tabular-nums}
+
+/* generic surfaces */
+.panel{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:16px}
+.panel h2{font:700 15px/1.3 var(--fd);margin:2px 0 4px}
+.sect{display:flex;flex-direction:column;gap:14px}
+.cardsgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.item{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.item h3{margin:0;font-size:15px;font-weight:700;word-break:break-word}
+.item p{margin:0;color:var(--mut);font-size:13px;word-break:break-word;white-space:pre-wrap}
+.itemfoot{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+.empty{border:1px dashed var(--line2);border-radius:14px;padding:38px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.empty h3{margin:0;font:700 16px var(--fd)}
+.empty p{margin:0;color:var(--mut);max-width:46ch}
+.bar{height:7px;border-radius:7px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc);border-radius:7px}
+.bar.g i{background:var(--green)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.muted{color:var(--mut)}
+.small{font-size:12.5px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:4px;width:max-content;max-width:100%}
+.tabs button{background:none;border:0;border-radius:7px;padding:6px 12px;font-weight:600;font-size:13px;color:var(--mut);display:flex;gap:7px;align-items:center}
+.tabs button[aria-selected="true"]{background:var(--surf2);color:var(--fg);box-shadow:0 0 0 1px var(--line2)}
+.tabs .mono{font-size:11px;color:var(--dim)}
+
+/* metrics */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:14px 15px}
+.kpi .k{font:600 10.5px var(--fb);letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+.kpi .v{font:700 30px/1.15 var(--fd);margin:8px 0 2px;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:12px;color:var(--dim)}
+.kpi.hero{background:linear-gradient(160deg,#16294a,var(--surf) 70%);border-color:#24406b}
+.split{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px}
+.hbars{display:flex;flex-direction:column;gap:12px}
+.hb .spread{font-size:13px}
+.hb .track{position:relative;height:10px;border-radius:6px;background:var(--line);overflow:hidden}
+.hb .track i{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--mut)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.chartbox{overflow-x:auto}
+.chartbox svg{display:block;min-width:460px;width:100%;height:auto}
+
+/* meetings / goals */
+.two{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:16px;align-items:start}
+.plist{display:flex;flex-direction:column;gap:6px}
+.plist button{display:flex;justify-content:space-between;gap:8px;text-align:left;background:var(--surf);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-weight:600;font-size:13px}
+.plist button[aria-pressed="true"]{border-color:var(--acc);background:var(--accbg)}
+.stats4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surf2)}
+.stat .k{font-size:11.5px;color:var(--mut);font-weight:600}
+.stat .v{font:700 18px var(--fd);margin-top:3px;word-break:break-word}
+.agl{display:flex;flex-direction:column;gap:5px;margin:0;padding:0;list-style:none}
+.agl li{display:flex;gap:8px;align-items:flex-start;font-size:13px}
+.agl li.did span{text-decoration:line-through;color:var(--mut)}
+.mtitle{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.datebadge{font:500 11.5px var(--fm);color:var(--acc2);background:var(--accbg);border-radius:6px;padding:2px 8px}
+.pill{font-size:11px;font-weight:700;border-radius:20px;padding:3px 9px;letter-spacing:.02em}
+.pill.run{background:var(--accbg);color:var(--acc2)}
+.pill.hit{background:var(--greenbg);color:var(--green)}
+.pill.miss{background:var(--redbg);color:var(--red)}
+.pill.off{background:var(--line);color:var(--mut)}
+
+/* docs */
+.docs{display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px;align-items:start}
+.lib{display:flex;flex-direction:column;gap:14px}
+.lib .navlbl{padding:0 2px 6px}
+.lib button.li{display:flex;justify-content:space-between;width:100%;background:none;border:1px solid transparent;border-radius:8px;padding:7px 9px;color:var(--mut);font-weight:600;font-size:13px;text-align:left}
+.lib button.li[aria-pressed="true"]{color:var(--fg);background:var(--surf);border-color:var(--line2)}
+.lib button.li.drop{border-color:var(--acc);background:var(--accbg)}
+.dropzone{border:1.5px dashed var(--line2);border-radius:12px;padding:22px;text-align:center;color:var(--mut);transition:.12s}
+.dropzone.on{border-color:var(--acc);background:var(--accbg);color:var(--fg)}
+.dropzone b{color:var(--fg)}
+.doclist{display:flex;flex-direction:column;gap:6px}
+.docrow{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.ficon{width:38px;height:38px;border-radius:8px;display:grid;place-items:center;font:700 9.5px var(--fm);letter-spacing:.04em}
+.ficon.xls{background:var(--greenbg);color:var(--green)}
+.ficon.pdf{background:var(--redbg);color:var(--red)}
+.ficon.img{background:rgba(167,139,250,.14);color:var(--violet)}
+.ficon.oth{background:var(--line);color:var(--mut)}
+.docname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.docmeta{font-size:12px;color:var(--dim)}
+.sheet{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:8px}
+.sheet table{border-collapse:collapse;font-size:12.5px;min-width:100%}
+.sheet td,.sheet th{border:1px solid var(--line);padding:5px 9px;white-space:nowrap;text-align:left}
+.sheet th{background:var(--surf2);position:sticky;top:0;font-family:var(--fm);font-size:11px;color:var(--mut)}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(3,6,10,.66);display:flex;align-items:flex-start;justify-content:center;padding:max(40px,env(safe-area-inset-top,0px)) 16px 24px;overflow:auto;z-index:50}
+.modal{background:var(--surf);border:1px solid var(--line2);border-radius:14px;width:min(640px,100%);box-shadow:0 30px 80px rgba(0,0,0,.55);display:flex;flex-direction:column}
+.modal.wide{width:min(860px,100%)}
+.mh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:18px 20px 6px}
+.mh h2{margin:0;font:700 17px var(--fd)}
+.mh p{margin:4px 0 0;color:var(--mut);font-size:13px}
+.mb{padding:12px 20px;display:flex;flex-direction:column;gap:14px}
+.mf{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:14px 20px 18px;border-top:1px solid var(--line)}
+.mf .lft{margin-right:auto}
+.box{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--surf2)}
+.box h4{margin:0;font-size:13px;font-weight:700}
+.listed{display:flex;flex-direction:column;gap:5px}
+.listed .li{display:flex;gap:8px;align-items:center;background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px}
+.listed .li span{flex:1;min-width:0;word-break:break-word}
+.inl{display:flex;gap:6px}
+.inl input{flex:1}
+.atts{display:flex;flex-wrap:wrap;gap:8px}
+.att{display:flex;gap:8px;align-items:center;border:1px solid var(--line2);border-radius:8px;padding:5px 8px;font-size:12px;max-width:100%;background:var(--surf)}
+.att img{width:34px;height:34px;object-fit:cover;border-radius:5px}
+.att a{color:var(--acc2);text-decoration:none;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.atask{border:1px solid var(--line2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--surf)}
+.preview{border:1px dashed var(--line2);border-radius:9px;padding:10px 12px;font-size:13px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--surf2);border:1px solid var(--line2);border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:calc(100% - 32px)}
+.ro .w{display:none!important}
+.robar{background:var(--amberbg);color:var(--amber);font-size:12.5px;font-weight:600;padding:8px 20px;border-bottom:1px solid var(--line)}
+
+.auth{position:fixed;inset:0;z-index:90;background:radial-gradient(1200px 600px at 20% -10%,#14284a 0%,transparent 60%),var(--bg);display:flex;align-items:center;justify-content:center;padding:24px 16px;overflow:auto}
+.authbox{width:min(400px,100%);background:var(--surf);border:1px solid var(--line2);border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.authbox .logo{height:56px;margin:0 auto 6px}
+.authbox h1{font-size:19px;text-align:center;margin:0}
+.authbox p{margin:0;color:var(--mut);text-align:center;font-size:13.5px}
+.authbox .err{color:var(--red);font-size:13px;text-align:center;min-height:18px}
+.authbox .btn{justify-content:center;padding:11px}
+.linkbtn{background:none;border:0;color:var(--acc2);font-weight:600;font-size:13px;padding:2px}
+.sync .out{margin-left:auto}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+  .side{flex-direction:row;align-items:center;gap:10px;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));border-right:0;border-bottom:1px solid var(--line);min-width:0}
+  .brand{padding:0}
+    .logo{height:30px}
+  .navlbl,.sidefoot{display:none}
+  .gsel{padding:0;min-width:120px;max-width:150px}.gsel label{display:none}
+  .nav{flex-direction:row;overflow-x:auto;min-width:0;flex:1}
+  .nav button span{display:none}
+  .nav button{padding:8px}
+  .two,.docs{grid-template-columns:1fr}
+  .stats4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .col{max-height:none}
+  .head,.vb,.toolbar{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+}
+@media (max-width:560px){.grid2,.grid3{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.col{flex-basis:84vw}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="side">
+    <a class="brand" href="#kanban" aria-label="DNX Digital">
+      <img class="logo" src="data:image/png;base64,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" alt="DNX Digital" width="117" height="48">
+    </a>
+    <div class="gsel"><label for="gview">Visão</label><select id="gview" aria-label="Ver quadro de"></select></div>
+    <div class="navlbl">Navegação</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidefoot"><div class="sync" id="sync"><i></i><div><b>Conectando…</b><small>Carregando o quadro</small></div></div></div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+<div id="modalroot"></div>
+<div class="auth" id="auth"><form class="authbox" id="authform" novalidate>
+  <img class="logo" id="authlogo" alt="DNX Digital">
+  <h1 id="authtitle">Entrar no quadro</h1>
+  <p id="authsub">Use o e-mail e a senha da sua conta da equipe.</p>
+  <label class="f" id="authemailwrap">E-mail<input type="email" id="authemail" autocomplete="email" required></label>
+  <label class="f" id="authpasswrap">Senha<input type="password" id="authpass" autocomplete="current-password" minlength="6" required></label>
+  <div class="err" id="autherr" role="alert"></div>
+  <button class="btn pri" type="submit" id="authgo">Entrar</button>
+  <p id="authswap"><span id="authswaptxt">Primeiro acesso?</span> <button type="button" class="linkbtn" id="authtoggle">Criar conta</button></p>
+  <p class="hint" id="authhint">Esqueceu a senha? Fale com o administrador da agência.</p>
+  <button type="button" class="btn ghost" id="authout" hidden>Sair</button>
+</form></div>
+
+<script>
+(()=>{
+// ---------- helpers ----------
+const SB_URL='https://amqxjhqruebegnqiditl.supabase.co',SB_KEY='sb_publishable_GIunqzTQnxuKtduF_nd3XQ_MusIWC7J';
+const sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const pad=n=>String(n).padStart(2,'0');
+const fmt=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const pd=s=>{const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)};
+const today=()=>fmt(new Date());
+const addDays=(s,n)=>{const d=pd(s);d.setDate(d.getDate()+n);return fmt(d)};
+const diffDays=(a,b)=>Math.round((pd(a)-pd(b))/864e5);
+const MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const DSEM=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+const human=s=>{if(!s)return'';const d=pd(s);const t=today();const df=diffDays(s,t);if(df===0)return'Hoje';if(df===1)return'Amanhã';if(df===-1)return'Ontem';return d.getDate()+' '+MES[d.getMonth()]+(d.getFullYear()!==new Date().getFullYear()?' '+d.getFullYear():'')};
+const longDate=s=>{const d=pd(s);return d.getDate()+' de '+['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][d.getMonth()]+' de '+d.getFullYear()};
+const kb=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(0)+' KB':(n/1048576).toFixed(1)+' MB';
+const clone=o=>JSON.parse(JSON.stringify(o??null));
+let toastT;function toast(m){let t=$('#toast');if(!t){t=document.createElement('div');t.id='toast';t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2800)}
+
+const I={
+kanban:'<path d="M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z"/>',
+chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+repeat:'<path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+folder:'<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>',
+target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
+bolt:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+tpl:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+file:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
+plus:'<path d="M12 5v14M5 12h14"/>',
+dots:'<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+check:'<path d="M5 12l5 5L20 7"/>',
+x:'<path d="M6 6l12 12M18 6L6 18"/>',
+cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+list:'<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>',
+clip:'<path d="M21 11l-8.6 8.6a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.6 8.6a2 2 0 0 1-2.8-2.8L15.5 7"/>',
+star:'<path d="M12 3l2.8 5.8 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.3l1-6.2L3 9.7l6.2-.9z"/>',
+chev:'<path d="M6 9l6 6 6-6"/>',
+up:'<path d="M12 19V5M5 12l7-7 7 7"/>',
+users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
+inbox:'<path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 13h5l1.5 3h5L16 13h5"/>'
+};
+const ic=(n,fill)=>`<svg viewBox="0 0 24 24" fill="${fill?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+
+// ---------- store ----------
+const COLS=['tasks','projects','columns','recurring','meetings','goals','templates','automations','docs','folders','gestores','inbox'];
+const S={};COLS.forEach(c=>S[c]=[]);
+let mode='init',assets=null,sample=null,meId=null,isAdmin=false,myGestor=null,me=null,profiles=[],canWrite=true;
+const SHARED=new Set(['gestores','templates','automations','columns','folders']);
+const SU={};const U=a=>(a&&(SU[a.id||a.assetId]||a.url))||'#';
+async function refreshUrls(){const ids=[...new Set([...S.tasks.flatMap(t=>(t.atts||[]).map(a=>a.id)),...S.templates.flatMap(t=>(t.atts||[]).map(a=>a.id)),...S.docs.map(d=>d.assetId)].filter(x=>x&&!SU[x]))];
+ for(let i=0;i<ids.length;i+=100){try{const{data}=await sb.storage.from('anexos').createSignedUrls(ids.slice(i,i+100),43200);(data||[]).forEach(r=>{if(r.signedUrl)SU[r.path]=r.signedUrl})}catch(e){}}if(ids.length)schedule()}
+const LS='dnx-tarefas-v1';
+function loadLocal(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j)COLS.forEach(c=>S[c]=j[c]||[])}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+const byId=(c,id)=>S[c].find(x=>x.id===id);
+function upsertLocal(c,o){const i=S[c].findIndex(x=>x.id===o.id);if(i<0)S[c]=[...S[c],o];else{const a=S[c].slice();a[i]=o;S[c]=a}}
+const chains={};
+function errMsg(e){if(e&&(e.code==='42501'||/row-level security/i.test(e.message||'')))return'Você não tem permissão para alterar este item.';if(e&&/fetch|network/i.test(e.message||''))return'Sem conexão com a internet. A alteração não foi salva.';const c=e&&e.code;if(c==='quota_exceeded')return'O espaço do quadro está cheio. Exclua itens antigos para continuar.';if(c==='invalid_argument'){setRO(true);return'Você tem acesso só de leitura a este quadro.'}if(c==='resource_exhausted')return'Muitas alterações seguidas. Aguarde um instante.';return'Não foi possível salvar. Tente de novo.'}
+async function put(c,o){
+  if(!o.id)o.id=uid();
+  upsertLocal(c,o);schedule();
+  if(!SHARED.has(c)&&!isAdmin&&myGestor)o.gestorId=myGestor;
+  if(mode==='db'){const row={col:c,id:o.id,gestor_id:SHARED.has(c)?null:(o.gestorId||null),data:JSON.parse(JSON.stringify(o)),updated_at:new Date().toISOString()};const k=c+'/'+o.id;
+    const p=(chains[k]||Promise.resolve()).catch(()=>{}).then(async()=>{const{error}=await sb.from('items').upsert(row);if(error)throw error});chains[k]=p;try{await p}catch(e){toast(errMsg(e))}}
+  else saveLocal();
+  return o.id;
+}
+const patch=(c,id,p)=>{const o=byId(c,id);if(o)return put(c,{...clone(o),...p})};
+async function del(c,id){S[c]=S[c].filter(x=>x.id!==id);schedule();if(mode==='db'){const k=c+'/'+id;const p=(chains[k]||Promise.resolve()).catch(()=>{}).then(async()=>{const{error}=await sb.from('items').delete().eq('col',c).eq('id',id);if(error)throw error});chains[k]=p;try{await p}catch(e){toast(errMsg(e))}}else saveLocal()}
+
+function setRO(v){canWrite=!v;document.body.classList.toggle('ro',v);const b=$('#robar');if(b)b.hidden=!v}
+let setSync=function(kind,t,s){const el=$('#sync');el.className='sync '+kind;el.innerHTML=`<i></i><div style="min-width:0"><b>${esc(t)}</b><small style="overflow:hidden;text-overflow:ellipsis">${esc(s)}</small></div>`};
+
+// ---------- domain ----------
+const PRI={'':'Nenhuma',baixa:'Baixa',media:'Média',alta:'Alta'};
+const LBL=['Cliente','Melhoria','Acompanhamento','Decisão'];
+const FIXED=[
+ {k:'over',n:'Vencido',c:'var(--red)'},
+ {k:'today',n:'Vencimento hoje',c:'var(--amber)'},
+ {k:'week',n:'Vencimento esta semana',c:'var(--acc)'},
+ {k:'next',n:'Vencimento próxima semana',c:'var(--violet)'},
+ {k:'two',n:'Vencimento em duas semanas',c:'var(--teal)'},
+ {k:'nodue',n:'Sem prazo',c:'var(--mut)'}];
+const DONE={k:'done',n:'Concluído',c:'var(--green)'};
+const daysToSun=()=>(7-new Date().getDay())%7;
+function bucket(t){
+  if(t.done)return'done';
+  if(t.col&&byId('columns',t.col))return t.col;
+  if(!t.due)return'nodue';
+  const d=diffDays(t.due,today()),s=daysToSun();
+  if(d<0)return'over';if(d===0)return'today';if(d<=s)return'week';if(d<=s+7)return'next';return'two';
+}
+function dueFor(k){const t=today(),s=daysToSun();return{over:addDays(t,-1),today:t,week:addDays(t,Math.max(s,1)),next:addDays(t,s+1),two:addDays(t,s+8),nodue:null}[k]}
+const allCols=()=>[...FIXED,...S.columns.slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(c=>({k:c.id,n:c.name,c:'var(--acc2)',custom:true})),DONE];
+const projName=id=>byId('projects',id)?.name||'';
+const gesName=id=>byId('gestores',id)?.name||'';
+const projGes=pid=>byId('projects',pid)?.gestorId||'';
+const inG=o=>!UI.g||o.gestorId===UI.g;
+const inGP=o=>!UI.g||o.gestorId===UI.g||(o.projectId&&projGes(o.projectId)===UI.g);
+const gesOpts=(sel,empty='Sem gestor')=>`<option value="">${empty}</option>`+S.gestores.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(g=>`<option value="${g.id}"${g.id===sel?' selected':''}>${esc(g.name)}</option>`).join('');
+const projOpts=(sel,empty='Sem projeto')=>`<option value="">${empty}</option>`+S.projects.filter(p=>inG(p)||p.id===sel).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${p.id}"${p.id===sel?' selected':''}>${esc(p.name)}</option>`).join('');
+const priOpts=sel=>Object.entries(PRI).map(([k,v])=>`<option value="${k}"${k===(sel||'')?' selected':''}>${v}</option>`).join('');
+const lblOpts=sel=>`<option value="">Nenhuma</option>`+LBL.map(l=>`<option${l===sel?' selected':''}>${l}</option>`).join('');
+function newTask(p){return{id:uid(),gestorId:UI.g||'',title:'',desc:'',summary:'',projectId:'',due:today(),priority:'',label:'',focus:false,done:false,doneAt:null,col:null,subtasks:[],atts:[],createdAt:Date.now(),...p}}
+
+// recurrence
+const freqText=r=>r.freq==='daily'?'Todo dia':r.freq==='weekly'?'Toda '+DSEM[r.weekday??1]:'Todo dia '+(r.monthday||1)+' do mês';
+function recMatches(r,dstr){const d=pd(dstr);if(r.freq==='daily')return true;if(r.freq==='weekly')return d.getDay()===Number(r.weekday??1);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();return d.getDate()===Math.min(Number(r.monthday||1),last)}
+function nextRun(r){let d=today();for(let i=0;i<62;i++){if(recMatches(r,d)&&!(i===0&&r.lastKey===d))return d;d=addDays(d,1)}return null}
+function taskFromRule(r,day){return newTask({gestorId:r.gestorId||projGes(r.projectId)||'',title:r.title,desc:r.desc||'',projectId:r.projectId||'',priority:r.priority||'',label:r.label||'',due:day,subtasks:(r.subtasks||[]).map(s=>({t:s.t||s,done:false})),recurringId:r.id})}
+let recRunning=false;
+async function runRecurring(){
+  if(recRunning||!canWrite)return;recRunning=true;const day=today();
+  try{for(const r of S.recurring){
+    if(r.active===false||r.lastKey===day||!recMatches(r,day))continue;
+    const t=taskFromRule(r,day);t.id='rec-'+r.id+'-'+day;
+    if(!byId('tasks',t.id)){if(!isAdmin&&myGestor)t.gestorId=myGestor;
+      if(mode==='db'){const{error}=await sb.from('items').upsert({col:'tasks',id:t.id,gestor_id:t.gestorId||null,data:t,updated_at:new Date().toISOString()},{onConflict:'col,id',ignoreDuplicates:true});if(error)continue}
+      else upsertLocal('tasks',t)}
+    await patch('recurring',r.id,{lastKey:day});
+  }}finally{recRunning=false}
+}
+
+// automations
+function applyAutomation(aId,project){
+  const a=byId('automations',aId);if(!a)return 0;const nm=project.name;const rep=s=>String(s||'').split('[nome do projeto]').join(nm);
+  (a.tasks||[]).forEach(t=>{const rel=t.rel===''||t.rel==null?null:Number(t.rel);
+    const done=t.col==='done';const due=rel!=null&&!isNaN(rel)?addDays(today(),rel):done?today():dueFor(t.col||'nodue');
+    put('tasks',newTask({gestorId:project.gestorId||'',title:rep(t.title)||'Tarefa',desc:rep(t.desc),projectId:project.id,due:due??null,priority:t.priority||'',label:t.label||'',done,doneAt:done?Date.now():null,subtasks:(t.checklist||[]).map(x=>({t:rep(x),done:false})),autoId:a.id}))});
+  const log=[{at:Date.now(),project:nm,count:(a.tasks||[]).length},...(a.log||[])].slice(0,25);
+  patch('automations',a.id,{log});return(a.tasks||[]).length;
+}
+
+// ---------- UI state & routing ----------
+const ROUTES=[
+ ['kanban','Kanban','kanban'],['entrada','Entrada','inbox'],['gestores','Gestores','users'],['metricas','Métricas','chart'],['recorrentes','Recorrentes','repeat'],['projetos','Projetos','folder'],
+ ['reunioes','Reuniões','chat'],['metas','Metas','target'],['automacoes','Automações','bolt'],['modelos','Modelos','tpl'],['documentos','Documentos','file']];
+const UI={g:'',gSet:false,route:'kanban',q:'',proj:'',pri:'',mProj:'',mPeriod:'all',mArch:false,gTab:'run',gProj:'',gPeriod:30,dLib:'all',dType:'all',dFolder:'',extLink:'',menu:null};
+try{const r=JSON.parse(localStorage.getItem(LS+'-ui')||'{}');['proj','pri','gPeriod','mPeriod','g'].forEach(k=>{if(r[k]!=null)UI[k]=r[k]});if(r.g!=null)UI.gSet=true}catch(e){}
+const saveUI=()=>{try{localStorage.setItem(LS+'-ui',JSON.stringify({proj:UI.proj,pri:UI.pri,gPeriod:UI.gPeriod,mPeriod:UI.mPeriod,g:UI.g}))}catch(e){}};
+
+function navHtml(){const RT=isAdmin?ROUTES:ROUTES.filter(r=>r[0]!=='gestores');const pend=S.inbox.filter(x=>x.status!=='done'&&x.status!=='discarded'&&inG(x)).length;return RT.map(([k,n,i])=>`<button data-act="go" data-r="${k}"${UI.route===k?' aria-current="page"':''}>${ic(i)}<span>${n}</span>${k==='entrada'&&pend?`<b class="badge">${pend}</b>`:''}</button>`).join('')}
+let lastG='';function renderGSel(){const el=$('#gview');el.closest('.gsel').hidden=!isAdmin;const key=JSON.stringify(S.gestores.map(g=>[g.id,g.name]))+UI.g;if(key===lastG)return;lastG=key;el.innerHTML=gesOpts(UI.g,'Todos os gestores');el.value=UI.g}
+function setG(id){if(!isAdmin)id=myGestor||'';UI.g=id;UI.gSet=true;UI.proj='';UI.mProj='';UI.gProj='';saveUI();renderGSel();buildView()}
+function go(r){if(!ROUTES.some(x=>x[0]===r)||(r==='gestores'&&!isAdmin))r='kanban';UI.route=r;UI.menu=null;try{history.replaceState(null,'','#'+r)}catch(e){}$('#nav').innerHTML=navHtml();buildView()}
+
+let rq=0;function schedule(){if(rq)return;rq=requestAnimationFrame(()=>{rq=0;renderGSel();$('#nav').innerHTML=navHtml();renderBody()})}
+
+const V={};
+function head(eb,t,l,acts=''){if(UI.g&&gesName(UI.g))eb+=' · '+esc(gesName(UI.g));return`<div class="robar" id="robar"${canWrite?' hidden':''}>Você está vendo este quadro em modo leitura.</div><header class="head"><div><div class="eyebrow">${eb}</div><h1>${t}</h1><p class="lede">${l}</p></div><div class="acts">${acts}</div></header>`}
+function buildView(){const v=V[UI.route];$('#main').innerHTML=v.head()+'<div class="vb" id="vb"></div>';v.after&&v.after();renderBody();$('#main').scrollTop=0}
+function renderBody(){const v=V[UI.route];const vb=$('#vb');if(!vb)return;
+  const st=vb.querySelector('.board')?.scrollLeft;vb.innerHTML=v.body();if(st)vb.querySelector('.board').scrollLeft=st;v.bind&&v.bind()}
+
+// ---------- KANBAN ----------
+V.kanban={
+head:()=>head('Planejamento diário','Quadro Kanban','Organize o foco da equipe por prazo, projeto e progresso.',
+ `<div class="menuwrap w"><button class="btn pri" data-act="newmenu">${ic('plus')}Nova tarefa${ic('chev')}</button><div class="menu" id="newmenu" hidden><button data-act="new-task">Tarefa em branco</button><button data-act="new-from-tpl">A partir de um modelo</button></div></div>
+  <button class="btn w" data-act="new-col">${ic('plus')}Nova coluna</button>`)+
+ `<div class="toolbar"><label class="search">${ic('search')}<input id="q" type="text" placeholder="Buscar por tarefa ou descrição…" value="${esc(UI.q)}" aria-label="Buscar tarefas"></label>
+  <select id="fproj" aria-label="Filtrar por projeto">${projOpts(UI.proj,'Todos os projetos')}</select>
+  <select id="fpri" aria-label="Filtrar por prioridade"><option value="">Todas as prioridades</option>${['alta','media','baixa'].map(k=>`<option value="${k}"${UI.pri===k?' selected':''}>${PRI[k]}</option>`).join('')}</select></div>`,
+after(){
+  $('#q').addEventListener('input',e=>{UI.q=e.target.value;schedule()});
+  $('#fproj').addEventListener('change',e=>{UI.proj=e.target.value;saveUI();schedule()});
+  $('#fpri').addEventListener('change',e=>{UI.pri=e.target.value;saveUI();schedule()});
+},
+body(){
+  const fp=$('#fproj');if(fp&&fp.options.length!==S.projects.length+1){fp.innerHTML=projOpts(UI.proj,'Todos os projetos')}
+  const q=UI.q.trim().toLowerCase();
+  const list=S.tasks.filter(t=>inG(t)&&(!UI.proj||t.projectId===UI.proj)&&(!UI.pri||t.priority===UI.pri)&&(!q||(t.title+' '+(t.desc||'')+' '+(t.summary||'')).toLowerCase().includes(q)));
+  const pw={alta:0,media:1,baixa:2,'':3};
+  return`<div class="board">${allCols().map(c=>{
+    let ts=list.filter(t=>bucket(t)===c.k);
+    ts.sort(c.k==='done'?(a,b)=>(b.doneAt||0)-(a.doneAt||0):(a,b)=>(b.focus-a.focus)||((a.due||'9')>(b.due||'9')?1:(a.due||'9')<(b.due||'9')?-1:0)||(pw[a.priority||'']-pw[b.priority||'']));
+    return`<section class="col" data-col="${c.k}" aria-label="${esc(c.n)}"><div class="colh"><i style="background:${c.c}"></i><h3 title="${esc(c.n)}">${esc(c.n)}</h3><span class="count">${ts.length}</span>
+      ${c.custom?`<div class="menuwrap w"><button class="iconbtn" data-act="colmenu" data-k="${c.k}" aria-label="Opções da coluna">${ic('dots')}</button><div class="menu" ${UI.menu===c.k?'':'hidden'}><button data-act="col-rename" data-k="${c.k}">Renomear coluna</button><button data-act="col-del" data-k="${c.k}">Excluir coluna</button></div></div>`:''}</div>
+      <div class="cards">${ts.length?ts.map(cardHtml).join(''):`<div class="colempty"><b>SEM TAREFAS</b>Arraste uma tarefa para cá</div>`}</div>
+      <button class="addrow w" data-act="add-in" data-k="${c.k}">${ic('plus')}Adicionar tarefa</button></section>`}).join('')}</div>`;
+},
+bind(){
+  document.querySelectorAll('.card[draggable]').forEach(el=>{
+    el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',el.dataset.id);e.dataTransfer.effectAllowed='move';el.classList.add('dragging')});
+    el.addEventListener('dragend',()=>el.classList.remove('dragging'));});
+  document.querySelectorAll('.col').forEach(col=>{
+    col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('over-drop')});
+    col.addEventListener('dragleave',e=>{if(!col.contains(e.relatedTarget))col.classList.remove('over-drop')});
+    col.addEventListener('drop',e=>{e.preventDefault();col.classList.remove('over-drop');const id=e.dataTransfer.getData('text/plain');if(id)moveTask(id,col.dataset.col)});});
+}};
+function cardHtml(t){
+  const late=!t.done&&t.due&&t.due<today();const st=(t.subtasks||[]);const sd=st.filter(s=>s.done).length;
+  return`<article class="card${t.done?' done':''}${t.focus&&!t.done?' focus':''}" data-act="open-task" data-id="${t.id}" ${canWrite?'draggable="true"':''} tabindex="0">
+   <div class="ct"><button class="chk${t.done?' on':''}" data-act="toggle-done" data-id="${t.id}" aria-label="${t.done?'Reabrir':'Concluir'} tarefa">${t.done?ic('check'):''}</button><div class="ctitle">${esc(t.title)}</div></div>
+   <div class="meta">${!UI.g&&t.gestorId&&gesName(t.gestorId)?`<span class="chip ges">${esc(gesName(t.gestorId))}</span>`:''}${t.projectId&&projName(t.projectId)?`<span class="chip proj">${esc(projName(t.projectId))}</span>`:''}
+   ${t.due?`<span class="chip${late?' late':''}">${ic('cal')}${human(t.due)}</span>`:''}
+   ${t.priority?`<span class="chip ${t.priority}">${PRI[t.priority]}</span>`:''}${t.label?`<span class="chip lbl">${esc(t.label)}</span>`:''}
+   ${st.length?`<span class="chip${sd===st.length?' ok':''}">${ic('list')}<span class="mono">${sd}/${st.length}</span></span>`:''}
+   ${(t.atts||[]).length?`<span class="chip">${ic('clip')}<span class="mono">${t.atts.length}</span></span>`:''}
+   ${t.recurringId?`<span class="chip" title="Tarefa recorrente">${ic('repeat')}</span>`:''}${t.focus&&!t.done?`<span class="chip baixa">Em foco</span>`:''}</div></article>`}
+function moveTask(id,k){const t=byId('tasks',id);if(!t||!canWrite||bucket(t)===k)return;
+  if(k==='done')return patch('tasks',id,{done:true,doneAt:Date.now()});
+  if(byId('columns',k))return patch('tasks',id,{done:false,doneAt:null,col:k});
+  patch('tasks',id,{done:false,doneAt:null,col:null,due:dueFor(k)})}
+
+// ---------- modal infra ----------
+let M=null;
+function openModal(cfg){M=cfg;M.draft=cfg.draft||{};
+  $('#modalroot').innerHTML=`<div class="scrim" data-act="scrim"><div class="modal${cfg.wide?' wide':''}" role="dialog" aria-modal="true" aria-labelledby="mt"><div class="mh"><div><h2 id="mt">${cfg.title}</h2>${cfg.sub?`<p>${cfg.sub}</p>`:''}</div><button class="iconbtn" data-act="close" aria-label="Fechar">${ic('x')}</button></div>
+  <form class="mb" id="mform">${cfg.body()}</form><div class="mf">${cfg.left||''}<button class="btn ghost" type="button" data-act="close">${cfg.save?'Cancelar':'Fechar'}</button>${cfg.save&&canWrite?`<button class="btn pri" type="button" data-act="msave">${cfg.saveLabel||'Salvar'}</button>`:''}</div></div></div>`;
+  Object.keys(cfg.parts||{}).forEach(refresh);cfg.after&&cfg.after();
+  setTimeout(()=>{const f=$('#mform [autofocus]')||$('#mform input,#mform select');f&&f.focus()},30)}
+function refresh(p){const el=document.getElementById('part-'+p);if(el&&M.parts[p])el.innerHTML=M.parts[p](M.draft)}
+function closeModal(){M=null;$('#modalroot').innerHTML=''}
+const val=id=>{const e=document.getElementById(id);return e?(e.type==='checkbox'?e.checked:e.value.trim()):''};
+function listPart(key,ph,checkable=true){return d=>`<div class="listed">${(d[key]||[]).map((s,i)=>`<div class="li">${checkable?`<button type="button" class="chk${s.done?' on':''}" data-act="list-tog" data-key="${key}" data-i="${i}" aria-label="Marcar">${s.done?ic('check'):''}</button>`:''}<span>${esc(s.t)}</span><button type="button" class="iconbtn" data-act="list-del" data-key="${key}" data-i="${i}" aria-label="Remover">${ic('x')}</button></div>`).join('')||`<div class="hint">Nenhum item adicionado.</div>`}</div>
+  <div class="inl w"><input type="text" id="li-${key}" placeholder="${ph}" data-enter="${key}"><button type="button" class="btn sm" data-act="list-add" data-key="${key}">Adicionar</button></div>`}
+function listAdd(key){const inp=document.getElementById('li-'+key);const v=inp.value.trim();if(!v)return;M.draft[key]=[...(M.draft[key]||[]),{t:v,done:false}];refresh(key);document.getElementById('li-'+key).focus()}
+
+// attachments
+const attPart=d=>`<div class="atts">${(d.atts||[]).map((a,i)=>`<div class="att">${a.type?.startsWith('image/')?`<img src="${esc(U(a))}" alt="">`:`<span class="ficon ${a.type==='application/pdf'?'pdf':'oth'}" style="width:34px;height:34px">${a.type==='application/pdf'?'PDF':'ARQ'}</span>`}<a href="${esc(U(a))}" target="_blank" rel="noopener">${esc(a.name)}</a><button type="button" class="iconbtn w" data-act="att-del" data-i="${i}" aria-label="Remover anexo">${ic('x')}</button></div>`).join('')}
+ ${d._up?`<span class="hint">Enviando ${d._up} arquivo(s)…</span>`:''}</div>
+ ${assets?`<div class="row w"><label class="btn sm">${ic('clip')}Selecionar arquivos<input type="file" id="attfile" multiple accept="image/*,application/pdf" hidden></label><span class="hint">Ou cole um print com Ctrl+V nesta janela. Até 8 MB por arquivo.</span></div>`:`<span class="hint">Entre na sua conta para anexar arquivos.</span>`}`;
+async function uploadFiles(files,onDone){
+  const ok=[...files].filter(f=>{if(f.size>8*1048576){toast(f.name+' passa de 8 MB.');return false}return true});if(!ok.length)return;
+  if(!assets){toast('Entre na sua conta para enviar arquivos.');return}
+  M&&(M.draft._up=(M.draft._up||0)+ok.length,refresh('att'));
+  for(const f of ok){try{const r=await assets.upload(f);SU[r.id]=r.url;onDone({id:r.id,name:f.name||'print.png',type:f.type||r.contentType,size:f.size})}catch(e){toast('Não foi possível enviar '+(f.name||'o arquivo')+'.')}
+    if(M){M.draft._up--;refresh('att')}}
+}
+function bindAtt(){const fi=$('#attfile');fi&&fi.addEventListener('change',()=>uploadFiles(fi.files,a=>{if(M){M.draft.atts=[...(M.draft.atts||[]),a];refresh('att')}}))}
+document.addEventListener('paste',e=>{if(!M||!M.parts||!M.parts.att)return;const fs=[...(e.clipboardData?.files||[])];if(!fs.length)return;e.preventDefault();uploadFiles(fs,a=>{if(M){M.draft.atts=[...(M.draft.atts||[]),a];refresh('att')}})});
+
+// ---------- task modal ----------
+function taskModal(t,isNew,hint){
+  const d=clone(t);const rec=d.recurringId?byId('recurring',d.recurringId):null;
+  openModal({title:isNew?(hint?`Adicionar tarefa em “${esc(hint)}”`:'Nova tarefa'):'Editar tarefa',sub:isNew&&hint?'O prazo foi preenchido com base nesta coluna. Você pode alterá-lo antes de criar.':'',draft:d,saveLabel:isNew?'Criar tarefa':'Salvar alterações',
+  body:()=>`<label class="f">Título *<input type="text" id="t-title" value="${esc(d.title)}" autofocus required></label>
+   <div class="grid3"><label class="f">Gestor<select id="t-ges">${gesOpts(d.gestorId)}</select></label><label class="f">Projeto (opcional)<select id="t-proj">${projOpts(d.projectId)}</select></label>
+   <label class="f">Data de entrega<input type="date" id="t-due" value="${d.due||''}"><span class="hint">Deixe em branco para “Sem prazo”.</span></label></div>
+   <div class="grid3"><label class="f">Prioridade<select id="t-pri">${priOpts(d.priority)}</select></label><label class="f">Etiqueta<select id="t-lbl">${lblOpts(d.label)}</select></label>
+   <label class="f">Status<select id="t-st"><option value="">Não iniciado</option><option value="focus"${d.focus?' selected':''}>Em foco</option><option value="done"${d.done?' selected':''}>Concluído</option></select></label></div>
+   <div class="box"><label class="switch"><input type="checkbox" id="t-rec"${rec?' checked':''}${d.recurringId&&!rec?'':''}> Ativar recorrência</label><span class="hint">Cria cópias pendentes automaticamente sem apagar as tarefas anteriores.</span>
+    <div class="grid3" id="recopts"${rec?'':' hidden'}><label class="f">Frequência<select id="t-freq"><option value="daily">Diária</option><option value="weekly"${rec?.freq==='weekly'?' selected':''}>Semanal</option><option value="monthly"${rec?.freq==='monthly'?' selected':''}>Mensal</option></select></label>
+    <label class="f">Dia da semana<select id="t-wd">${DSEM.map((n,i)=>`<option value="${i}"${(rec?.weekday??pd(d.due||today()).getDay())==i?' selected':''}>${n}</option>`).join('')}</select></label>
+    <label class="f">Dia do mês<input type="number" id="t-md" min="1" max="31" value="${rec?.monthday||pd(d.due||today()).getDate()}"></label></div></div>
+   <label class="f">Descrição<textarea id="t-desc" placeholder="O que precisa ser feito, links, acessos…">${esc(d.desc)}</textarea></label>
+   <label class="f">Meu resumo<textarea id="t-sum" placeholder="Registre com suas palavras o que você entendeu para consultar depois.">${esc(d.summary)}</textarea></label>
+   <div class="box"><h4>Subtarefas</h4><span class="hint">Divida esta tarefa em passos menores e marque cada um quando concluir.</span><div id="part-subtasks"></div></div>
+   <div class="box"><h4>Anexos (opcional)</h4><div id="part-att"></div></div>`,
+  parts:{subtasks:listPart('subtasks','Novo passo…'),att:attPart},
+  after(){bindAtt();$('#t-rec').addEventListener('change',e=>$('#recopts').hidden=!e.target.checked);$('#t-proj').addEventListener('change',e=>{const g=projGes(e.target.value);if(g&&!$('#t-ges').value)$('#t-ges').value=g})},
+  left:isNew?'':`<button type="button" class="btn danger lft w" data-act="arm" data-do="del-task" data-id="${d.id}">Excluir</button>`,
+  async save(){const title=val('t-title');if(!title){toast('Dê um título à tarefa.');$('#t-title').focus();return false}
+    const st=val('t-st');const o={...M.draft,title,gestorId:val('t-ges')||projGes(val('t-proj')),projectId:val('t-proj'),due:val('t-due')||null,priority:val('t-pri'),label:val('t-lbl'),desc:val('t-desc'),summary:val('t-sum'),focus:st==='focus',done:st==='done'};delete o._up;
+    if(o.done&&!t.done)o.doneAt=Date.now();if(!o.done)o.doneAt=null;
+    if(o.due!==t.due&&!isNew)o.col=null;
+    if(val('t-rec')){const r={id:rec?.id||uid(),gestorId:o.gestorId,title:o.title,desc:o.desc,projectId:o.projectId,priority:o.priority,label:o.label,subtasks:(o.subtasks||[]).map(s=>({t:s.t})),freq:val('t-freq'),weekday:Number(val('t-wd')),monthday:Number(val('t-md'))||1,active:true,lastKey:rec?.lastKey||today(),createdAt:rec?.createdAt||Date.now()};o.recurringId=r.id;put('recurring',r)}
+    else if(rec){patch('recurring',rec.id,{active:false});o.recurringId=null}
+    await put('tasks',o);if(o.inboxId)patch('inbox',o.inboxId,{status:'done',taskId:o.id});toast(isNew?'Tarefa criada':'Tarefa salva')}})}
+
+// ---------- template picker ----------
+function tplPicker(){openModal({title:'Criar a partir de um modelo',body:()=>S.templates.length?`<div class="listed">${S.templates.map(m=>`<div class="li"><span><b>${esc(m.name)}</b><br><span class="hint">${(m.subtasks||[]).length} subtarefas · ${m.dueOffset==='none'?'sem prazo':m.dueOffset==0?'prazo no dia':'prazo em '+m.dueOffset+' dias'}</span></span><button type="button" class="btn sm pri" data-act="use-tpl" data-id="${m.id}">Usar</button></div>`).join('')}</div>`:`<div class="empty"><h3>Nenhum modelo salvo</h3><p>Crie um modelo na aba Modelos para reaproveitar rotinas.</p><button type="button" class="btn" data-act="go" data-r="modelos">Ir para Modelos</button></div>`})}
+function useTpl(id){const m=byId('templates',id);if(!m)return;const due=m.dueOffset==='none'?null:addDays(today(),Number(m.dueOffset)||0);
+  taskModal(newTask({title:m.name,desc:m.desc||'',projectId:m.projectId||'',priority:m.priority||'',due,focus:m.status==='focus',subtasks:(m.subtasks||[]).map(s=>({t:s.t,done:false})),atts:clone(m.atts||[]),templateId:m.id}),true)}
+
+// ---------- METRICS ----------
+V.metricas={head:()=>head('Métricas de desempenho','Métricas da equipe','Acompanhe o progresso, a concentração de tarefas por projeto e o ritmo de conclusões.'),
+body(){const T=S.tasks.filter(inG),n=T.length,done=T.filter(t=>t.done).length,foc=T.filter(t=>t.focus&&!t.done).length,late=T.filter(t=>!t.done&&t.due&&t.due<today()).length;const pct=n?Math.round(done/n*100):0;
+  const byP={};T.forEach(t=>{const k=t.projectId&&projName(t.projectId)?t.projectId:'_';(byP[k]=byP[k]||{all:0,done:0}).all++;if(t.done)byP[k].done++});
+  const rows=Object.entries(byP).map(([k,v])=>({name:k==='_'?'Sem projeto':projName(k),...v})).sort((a,b)=>b.all-a.all);const max=Math.max(1,...rows.map(r=>r.all));
+  const days=[];for(let i=13;i>=0;i--)days.push(addDays(today(),-i));const cnt={};T.forEach(t=>{if(t.done&&t.doneAt){const k=fmt(new Date(t.doneAt));cnt[k]=(cnt[k]||0)+1}});
+  const best=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];const vals=days.map(d=>cnt[d]||0);const vmax=Math.max(4,...vals);const nice=Math.ceil(vmax/4)*4;
+  const W=640,H=220,L=34,B=30,TP=12,bw=(W-L-10)/14;
+  const svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Conclusões por dia nos últimos 14 dias">${[0,1,2,3,4].map(i=>{const y=TP+(H-B-TP)*(1-i/4);return`<line x1="${L}" x2="${W-6}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L-8}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--dim)" font-family="DM Sans,sans-serif">${nice*i/4}</text>`}).join('')}
+   ${vals.map((v,i)=>{const h=(H-B-TP)*v/nice;const x=L+i*bw+bw*.18;const d=pd(days[i]);return`<rect x="${x}" y="${H-B-h}" width="${bw*.64}" height="${Math.max(h,0)}" rx="3" fill="${i===13?'var(--acc2)':'var(--acc)'}" opacity="${v?1:0}"><title>${d.getDate()} ${MES[d.getMonth()]}: ${v} concluída(s)</title></rect>${v?`<text x="${x+bw*.32}" y="${H-B-h-5}" text-anchor="middle" font-size="10.5" fill="var(--fg)" font-family="DM Sans,sans-serif">${v}</text>`:''}<text x="${x+bw*.32}" y="${H-10}" text-anchor="middle" font-size="10.5" fill="var(--dim)" font-family="DM Sans,sans-serif">${d.getDate()}/${pad(d.getMonth()+1)}</text>`}).join('')}</svg>`;
+  return`<div class="sect"><div class="kpis"><div class="kpi hero"><div class="k">Conclusão</div><div class="v">${pct}%</div><div class="d">${n?`${n} tarefa${n>1?'s':''} no quadro`:'Crie tarefas no Kanban para acompanhar a evolução aqui.'}</div><div class="bar g" style="margin-top:10px"><i style="width:${pct}%"></i></div></div>
+   <div class="kpi"><div class="k">Concluídas</div><div class="v">${done}</div><div class="d">Tarefas finalizadas.</div></div>
+   <div class="kpi"><div class="k">Em foco</div><div class="v">${foc}</div><div class="d">Itens marcados como em foco.</div></div>
+   <div class="kpi"><div class="k">Vencidas</div><div class="v" style="color:${late?'var(--red)':'inherit'}">${late}</div><div class="d">Pendentes com prazo anterior a hoje.</div></div></div>
+  <div class="split"><div class="panel"><div class="eyebrow">Ritmo</div><h2>Conclusões nos últimos 14 dias</h2><p class="muted small" style="margin:0 0 10px">${best?`Dia com mais conclusões: <b style="color:var(--fg)">${longDate(best[0])}</b> (${best[1]})`:'Conclua tarefas para formar o histórico.'}</p><div class="chartbox">${svg}</div></div>
+  <div class="panel"><div class="spread"><div><div class="eyebrow">Carga por projeto</div><h2>Onde a equipe mais trabalhou</h2></div><div class="legend"><span><i style="background:var(--acc)"></i>Todas</span><span><i style="background:var(--green)"></i>Concluídas</span></div></div>
+   <p class="muted small" style="margin:0 0 14px">${rows[0]?`Projeto com mais tarefas: <b style="color:var(--fg)">${esc(rows[0].name)}</b> (${rows[0].all})`:'Ainda não há tarefas para comparar projetos.'}</p>
+   <div class="hbars">${rows.slice(0,10).map(r=>`<div class="hb"><div class="spread"><span>${esc(r.name)}</span><span class="mono muted">${r.done}/${r.all}</span></div><div class="track"><i style="width:${r.all/max*100}%;background:var(--acc);opacity:.55"></i><i style="width:${r.done/max*100}%;background:var(--green)"></i></div></div>`).join('')}</div></div></div></div>`}};
+
+// ---------- RECURRING ----------
+V.recorrentes={head:()=>head('Automação do foco','Tarefas recorrentes','Programe tarefas diárias, semanais ou mensais para entrarem no Quadro Kanban no dia certo, sem perder os registros anteriores.',`<button class="btn pri w" data-act="new-rec">${ic('plus')}Nova recorrência</button>`),
+body(){if(!S.recurring.filter(inG).length)return`<div class="empty"><h3>Nenhuma recorrência ainda</h3><p>Crie aqui ou ative “Recorrência” ao criar uma tarefa no Kanban. A tarefa aparece no quadro no dia programado, assim que alguém da equipe abrir o link.</p><button class="btn pri w" data-act="new-rec">${ic('plus')}Criar recorrência</button></div>`;
+ return`<div class="cardsgrid">${S.recurring.filter(inG).slice().sort((a,b)=>(b.active!==false)-(a.active!==false)).map(r=>{const nx=r.active===false?null:nextRun(r);const made=S.tasks.filter(t=>t.recurringId===r.id).length;
+  return`<div class="item"><div class="spread"><span class="pill ${r.active===false?'off':'run'}">${r.active===false?'Pausada':freqText(r)}</span><label class="switch w" title="Ativar ou pausar"><input type="checkbox" data-chg="rec-active" data-id="${r.id}"${r.active===false?'':' checked'} aria-label="Ativa"></label></div>
+  <h3>${esc(r.title)}</h3>${r.desc?`<p>${esc(r.desc)}</p>`:''}<div class="row">${r.projectId&&projName(r.projectId)?`<span class="chip proj">${esc(projName(r.projectId))}</span>`:''}${r.priority?`<span class="chip ${r.priority}">${PRI[r.priority]}</span>`:''}<span class="chip">${made} criada${made===1?'':'s'}</span></div>
+  <div class="small muted">${nx?`Próxima: <b style="color:var(--fg)">${longDate(nx)}</b>`:'Pausada'}</div><div class="itemfoot w"><button class="btn sm" data-act="edit-rec" data-id="${r.id}">Editar</button><button class="btn sm danger" data-act="arm" data-do="del-rec" data-id="${r.id}">Excluir</button></div></div>`}).join('')}</div>`}};
+function recModal(r){const isNew=!r;r=r?clone(r):{id:uid(),gestorId:UI.g||'',title:'',desc:'',projectId:'',priority:'',label:'',freq:'weekly',weekday:new Date().getDay(),monthday:new Date().getDate(),active:true,subtasks:[],createdAt:Date.now()};
+ openModal({title:isNew?'Nova recorrência':'Editar recorrência',draft:r,body:()=>`<label class="f">Título da tarefa *<input type="text" id="r-title" value="${esc(r.title)}" placeholder="Ex.: Relatório semanal do cliente" autofocus></label><label class="f">Descrição<textarea id="r-desc">${esc(r.desc)}</textarea></label>
+  <label class="f">Gestor<select id="r-ges">${gesOpts(r.gestorId)}</select></label><div class="grid3"><label class="f">Projeto<select id="r-proj">${projOpts(r.projectId)}</select></label><label class="f">Prioridade<select id="r-pri">${priOpts(r.priority)}</select></label><label class="f">Etiqueta<select id="r-lbl">${lblOpts(r.label)}</select></label></div>
+  <div class="grid3"><label class="f">Frequência<select id="r-freq"><option value="daily"${r.freq==='daily'?' selected':''}>Diária</option><option value="weekly"${r.freq==='weekly'?' selected':''}>Semanal</option><option value="monthly"${r.freq==='monthly'?' selected':''}>Mensal</option></select></label><label class="f">Dia da semana<select id="r-wd">${DSEM.map((n,i)=>`<option value="${i}"${r.weekday==i?' selected':''}>${n}</option>`).join('')}</select></label><label class="f">Dia do mês<input type="number" id="r-md" min="1" max="31" value="${r.monthday||1}"></label></div>
+  <div class="box"><h4>Checklist de cada cópia</h4><div id="part-subtasks"></div></div>`,parts:{subtasks:listPart('subtasks','Novo item…',false)},
+  save(){const t=val('r-title');if(!t){toast('Dê um título à recorrência.');return false}put('recurring',{...M.draft,gestorId:val('r-ges')||projGes(val('r-proj')),title:t,desc:val('r-desc'),projectId:val('r-proj'),priority:val('r-pri'),label:val('r-lbl'),freq:val('r-freq'),weekday:Number(val('r-wd')),monthday:Number(val('r-md'))||1}).then(runRecurring);toast(isNew?'Recorrência criada':'Recorrência salva')}})}
+
+// ---------- PROJECTS ----------
+V.projetos={head:()=>head('Estrutura de trabalho','Projetos','Agrupe tarefas por cliente ou objetivo e acompanhe o avanço de cada um.',`<button class="btn pri w" data-act="new-proj">${ic('plus')}Novo projeto</button>`),
+body(){if(!S.projects.filter(inG).length)return`<div class="empty"><h3>Comece pelo primeiro projeto</h3><p>Reúna tarefas, prazos, reuniões e materiais de um cliente em um espaço único.</p><button class="btn pri w" data-act="new-proj">${ic('plus')}Criar primeiro projeto</button></div>`;
+ return`<div class="cardsgrid">${S.projects.filter(inG).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{const ts=S.tasks.filter(t=>t.projectId===p.id),d=ts.filter(t=>t.done).length,late=ts.filter(t=>!t.done&&t.due&&t.due<today()).length,pc=ts.length?Math.round(d/ts.length*100):0,mt=S.meetings.filter(m=>m.projectId===p.id&&!m.archived).length;
+  return`<div class="item"><h3>${esc(p.name)}</h3>${!UI.g&&gesName(p.gestorId)?`<div><span class="chip ges">${esc(gesName(p.gestorId))}</span></div>`:''}${p.desc?`<p>${esc(p.desc)}</p>`:''}<div><div class="spread small"><span class="muted">${d} de ${ts.length} concluídas</span><span class="mono">${pc}%</span></div><div class="bar g" style="margin-top:6px"><i style="width:${pc}%"></i></div></div>
+  <div class="row">${late?`<span class="chip late">${late} vencida${late>1?'s':''}</span>`:''}<span class="chip">${mt} reunião${mt===1?'':'ões'}</span></div>
+  <div class="itemfoot"><button class="btn sm" data-act="proj-board" data-id="${p.id}">Ver no quadro</button><button class="btn sm" data-act="proj-meet" data-id="${p.id}">Reuniões</button><button class="btn sm w" data-act="edit-proj" data-id="${p.id}">Editar</button><button class="btn sm danger w" data-act="arm" data-do="del-proj" data-id="${p.id}">Excluir</button></div></div>`}).join('')}</div>`}};
+function projModal(p){const isNew=!p;p=p?clone(p):{id:uid(),gestorId:UI.g||'',name:'',desc:'',createdAt:Date.now()};const act=S.automations.filter(a=>a.active!==false);
+ openModal({title:isNew?'Criar novo projeto':'Editar projeto',draft:p,body:()=>`<label class="f">Nome do projeto *<input type="text" id="p-name" value="${esc(p.name)}" placeholder="Ex.: Loja Aurora — Shopee" autofocus></label>
+  <label class="f">Gestor responsável<select id="p-ges">${gesOpts(p.gestorId)}</select></label>
+  <label class="f">Descrição do projeto<textarea id="p-desc" placeholder="Acessos, links, escopo e observações importantes…">${esc(p.desc)}</textarea><span class="hint">Explique o objetivo, os acessos ou as informações importantes deste projeto.</span></label>
+  ${isNew?`<div class="box"><h4>Aplicar automação de checklist</h4>${act.length?`<select id="p-auto"><option value="">Não aplicar</option>${act.map((a,i)=>`<option value="${a.id}"${i===0?' selected':''}>${esc(a.name)} (${(a.tasks||[]).length} tarefas)</option>`).join('')}</select>`:`<span class="hint">Nenhuma automação ativa. Crie uma na aba Automações.</span>`}</div>`:''}`,
+  saveLabel:isNew?'Criar':'Salvar',save(){const n=val('p-name');if(!n){toast('Dê um nome ao projeto.');return false}const o={...M.draft,name:n,desc:val('p-desc'),gestorId:val('p-ges')};put('projects',o);
+   const a=isNew&&val('p-auto');if(a){const c=applyAutomation(a,o);toast(`Projeto criado com ${c} tarefa${c===1?'':'s'} da automação`)}else toast(isNew?'Projeto criado':'Projeto salvo')}})}
+
+// ---------- MEETINGS ----------
+V.reunioes={head:()=>head('Gestão de clientes','Reuniões','Histórico de reuniões por projeto, com decisões, combinados e próximos passos.',`<button class="btn pri w" data-act="new-meet">${ic('plus')}Nova reunião</button>`)+
+ `<div class="toolbar"><select id="mproj" aria-label="Projeto">${projOpts(UI.mProj,'Todos os projetos')}</select><select id="mper" aria-label="Período">${[['all','Todos os períodos'],['7','Últimos 7 dias'],['30','Últimos 30 dias'],['90','Últimos 90 dias']].map(([k,n])=>`<option value="${k}"${UI.mPeriod==k?' selected':''}>${n}</option>`).join('')}</select><label class="switch"><input type="checkbox" id="march"${UI.mArch?' checked':''}> Mostrar arquivadas</label></div>`,
+after(){$('#mproj').addEventListener('change',e=>{UI.mProj=e.target.value;schedule()});$('#mper').addEventListener('change',e=>{UI.mPeriod=e.target.value;saveUI();schedule()});$('#march').addEventListener('change',e=>{UI.mArch=e.target.checked;schedule()})},
+body(){const mp=$('#mproj');if(mp)mp.value=UI.mProj;
+ const inP=m=>(!UI.mPeriod||UI.mPeriod==='all'||diffDays(today(),m.date)<=Number(UI.mPeriod));
+ const ms=S.meetings.filter(m=>inGP(m)&&(!UI.mProj||m.projectId===UI.mProj)&&(UI.mArch||!m.archived)&&inP(m)).sort((a,b)=>b.date.localeCompare(a.date)||(b.createdAt-a.createdAt));
+ const scope=S.meetings.filter(m=>inGP(m)&&(!UI.mProj||m.projectId===UI.mProj)&&!m.archived);const dec=scope.reduce((s,m)=>s+(m.decisions||[]).length,0);const pend=scope.reduce((s,m)=>s+(m.agreements||[]).filter(a=>!a.done).length,0);const last=scope.map(m=>m.date).sort().pop();
+ const plist=S.projects.filter(inG).slice().sort((a,b)=>a.name.localeCompare(b.name));
+ return`<div class="two"><div class="panel"><div class="eyebrow">Visão inicial</div><h2>Projetos</h2><p class="muted small" style="margin:0 0 12px">Escolha um projeto para ver só as reuniões dele.</p>
+  <div class="plist"><button data-act="mproj" data-id="" aria-pressed="${!UI.mProj}"><span>Todos os projetos</span><span class="mono muted">${S.meetings.filter(m=>inGP(m)&&!m.archived).length}</span></button>${plist.map(p=>`<button data-act="mproj" data-id="${p.id}" aria-pressed="${UI.mProj===p.id}"><span>${esc(p.name)}</span><span class="mono muted">${S.meetings.filter(m=>m.projectId===p.id&&!m.archived).length}</span></button>`).join('')}</div>
+  ${plist.length?'':`<p class="hint" style="margin-top:10px">Crie um projeto para organizar as reuniões.</p>`}</div>
+  <div class="sect"><div class="panel"><div class="eyebrow">Visão do projeto</div><h2>${UI.mProj?esc(projName(UI.mProj)):'Todos os projetos'}</h2>
+   <div class="stats4" style="margin-top:12px"><div class="stat"><div class="k">Reuniões</div><div class="v mono">${scope.length}</div></div><div class="stat"><div class="k">Decisões</div><div class="v mono">${dec}</div></div><div class="stat"><div class="k">Combinados pendentes</div><div class="v mono" style="color:${pend?'var(--amber)':'inherit'}">${pend}</div></div><div class="stat"><div class="k">Última conversa</div><div class="v" style="font-size:14px">${last?longDate(last):'Sem registro'}</div></div></div></div>
+   <div class="small muted">${ms.length} resultado${ms.length===1?'':'s'}</div>
+   ${ms.length?ms.map(meetHtml).join(''):`<div class="empty"><h3>Nenhuma reunião encontrada</h3><p>Registre a conversa, os combinados e os próximos passos para manter o projeto organizado.</p><button class="btn pri w" data-act="new-meet">${ic('plus')}Nova reunião</button></div>`}</div></div>`}};
+function meetHtml(m){return`<div class="item"><div class="spread"><div class="mtitle"><span class="datebadge">${m.date.split('-').reverse().join('/')}</span><h3>${esc(m.title)}</h3></div><div class="row">${m.projectId&&projName(m.projectId)?`<span class="chip proj">${esc(projName(m.projectId))}</span>`:''}${m.archived?'<span class="pill off">Arquivada</span>':''}</div></div>
+ ${m.people?`<div class="small muted">Participantes: ${esc(m.people)}</div>`:''}${m.notes?`<p>${esc(m.notes)}</p>`:''}
+ ${(m.decisions||[]).length?`<div><div class="eyebrow" style="margin-bottom:6px">Decisões</div><ul class="agl">${m.decisions.map(d=>`<li>${ic('check')}<span>${esc(d.t)}</span></li>`).join('')}</ul></div>`:''}
+ ${(m.agreements||[]).length?`<div><div class="eyebrow" style="margin-bottom:6px">Combinados</div><ul class="agl">${m.agreements.map((a,i)=>`<li class="${a.done?'did':''}"><button class="chk${a.done?' on':''}" data-act="agr-tog" data-id="${m.id}" data-i="${i}" aria-label="Marcar combinado">${a.done?ic('check'):''}</button><span>${esc(a.t)}</span></li>`).join('')}</ul></div>`:''}
+ ${m.next?`<div class="small"><b>Próximos passos:</b> <span class="muted">${esc(m.next)}</span></div>`:''}
+ <div class="itemfoot w"><button class="btn sm" data-act="edit-meet" data-id="${m.id}">Editar</button><button class="btn sm" data-act="meet-arch" data-id="${m.id}">${m.archived?'Desarquivar':'Arquivar'}</button><button class="btn sm danger" data-act="arm" data-do="del-meet" data-id="${m.id}">Excluir</button></div></div>`}
+function meetModal(m){const isNew=!m;m=m?clone(m):{id:uid(),gestorId:UI.g||'',projectId:UI.mProj,date:today(),title:'',people:'',notes:'',decisions:[],agreements:[],next:'',archived:false,createdAt:Date.now()};
+ openModal({title:isNew?'Nova reunião':'Editar reunião',wide:true,draft:m,body:()=>`<div class="grid3"><label class="f">Projeto<select id="m-proj">${projOpts(m.projectId)}</select></label><label class="f">Data<input type="date" id="m-date" value="${m.date}"></label><label class="f">Participantes<input type="text" id="m-people" value="${esc(m.people)}" placeholder="Ex.: Ana, cliente, Bruno"></label></div>
+  <label class="f">Assunto *<input type="text" id="m-title" value="${esc(m.title)}" placeholder="Ex.: Alinhamento de campanhas de novembro" autofocus></label>
+  <label class="f">Resumo da conversa<textarea id="m-notes">${esc(m.notes)}</textarea></label>
+  <div class="grid2"><div class="box"><h4>Decisões</h4><div id="part-decisions"></div></div><div class="box"><h4>Combinados</h4><div id="part-agreements"></div></div></div>
+  <label class="f">Próximos passos<textarea id="m-next" style="min-height:56px">${esc(m.next)}</textarea></label>`,
+  parts:{decisions:listPart('decisions','Nova decisão…',false),agreements:listPart('agreements','Novo combinado…')},
+  save(){const t=val('m-title');if(!t){toast('Informe o assunto da reunião.');return false}put('meetings',{...M.draft,gestorId:projGes(val('m-proj'))||M.draft.gestorId||UI.g||'',title:t,projectId:val('m-proj'),date:val('m-date')||today(),people:val('m-people'),notes:val('m-notes'),next:val('m-next')});toast(isNew?'Reunião registrada':'Reunião salva')}})}
+
+// ---------- GOALS ----------
+function goalStat(g){const cur=(g.checkpoints||[]).reduce((s,c)=>s+Number(c.value||0),0);const st=cur>=Number(g.target)?'hit':(g.end&&g.end<today()?'miss':'run');
+ const tot=Math.max(1,diffDays(g.end,g.start)),el=Math.min(tot,Math.max(0,diffDays(today(),g.start)));const exp=Number(g.target)*el/tot;return{cur,st,exp,pct:Math.min(100,cur/Math.max(1,Number(g.target))*100)}}
+V.metas={head:()=>head('Acompanhamento por projeto','Metas','Defina um alvo, registre checkpoints e acompanhe o ritmo de cada projeto.',`<button class="btn pri w" data-act="new-goal">${ic('plus')}Nova meta</button>`),
+body(){const G=S.goals.filter(g=>inGP(g)&&(!UI.gProj||g.projectId===UI.gProj)).map(g=>({g,...goalStat(g)}));const c={run:0,hit:0,miss:0};G.forEach(x=>c[x.st]++);const fin=c.hit+c.miss;
+ const list=G.filter(x=>x.st===UI.gTab).sort((a,b)=>(a.g.end||'').localeCompare(b.g.end||''));
+ const since=addDays(today(),-Number(UI.gPeriod));const hist={};S.goals.filter(g=>inGP(g)&&(!UI.gProj||g.projectId===UI.gProj)).forEach(g=>(g.checkpoints||[]).forEach(cp=>{if(cp.date>=since){const k=g.projectId&&projName(g.projectId)?projName(g.projectId):'Sem projeto';hist[k]=(hist[k]||0)+1}}));const hr=Object.entries(hist).sort((a,b)=>b[1]-a[1]);const hm=Math.max(1,...hr.map(h=>h[1]));
+ return`<div class="sect"><div class="spread"><div class="tabs" role="tablist">${[['run','Em andamento'],['hit','Atingidas'],['miss','Não atingidas']].map(([k,n])=>`<button role="tab" data-act="gtab" data-k="${k}" aria-selected="${UI.gTab===k}">${n}<span class="mono">${c[k]}</span></button>`).join('')}</div>
+  <div class="row"><select id="gproj" aria-label="Filtrar projeto">${projOpts(UI.gProj,'Todos os projetos')}</select><select id="gper" aria-label="Período do histórico">${[7,30,90,365].map(d=>`<option value="${d}"${UI.gPeriod==d?' selected':''}>Últimos ${d} dias</option>`).join('')}</select></div></div>
+ <div class="split"><div class="sect">${list.length?list.map(goalHtml).join(''):`<div class="empty"><h3>Nenhuma meta nesta categoria</h3><p>Uma meta tem alvo numérico, período e checkpoints. Ex.: 40 anúncios otimizados até o fim do mês.</p><button class="btn pri w" data-act="new-goal">${ic('plus')}Criar meta</button></div>`}</div>
+ <div class="sect"><div class="panel"><div class="eyebrow">Resumo dos ciclos</div><h2>${c.hit} de ${fin} atingidas</h2><p class="muted small" style="margin:0 0 8px">Considera metas já encerradas ou batidas.</p><div class="bar g"><i style="width:${fin?c.hit/fin*100:0}%"></i></div></div>
+  <div class="panel"><div class="eyebrow">Histórico acumulado por projeto</div><h2>Checkpoints registrados</h2><p class="muted small" style="margin:0 0 12px">Últimos ${UI.gPeriod} dias.</p>${hr.length?`<div class="hbars">${hr.map(([n,v])=>`<div class="hb"><div class="spread"><span>${esc(n)}</span><span class="mono muted">${v}</span></div><div class="track"><i style="width:${v/hm*100}%;background:var(--acc)"></i></div></div>`).join('')}</div>`:'<p class="hint">Sem checkpoints no período.</p>'}</div></div></div></div>`},
+bind(){$('#gproj').addEventListener('change',e=>{UI.gProj=e.target.value;schedule()});$('#gper').addEventListener('change',e=>{UI.gPeriod=Number(e.target.value);saveUI();schedule()})}};
+function goalHtml({g,cur,st,exp,pct}){const ahead=cur>=exp;const left=g.end?diffDays(g.end,today()):null;
+ return`<div class="item"><div class="spread"><span class="pill ${st}">${st==='hit'?'Atingida':st==='miss'?'Não atingida':ahead?'No ritmo':'Abaixo do ritmo'}</span>${g.projectId&&projName(g.projectId)?`<span class="chip proj">${esc(projName(g.projectId))}</span>`:''}</div>
+ <h3>${esc(g.title)}</h3><div class="spread"><span style="font:700 22px var(--fd)" class="mono">${cur}<span class="muted" style="font-size:14px"> / ${g.target} ${esc(g.unit||'')}</span></span><span class="small muted">${st==='run'?(left>=0?`${left} dia${left===1?'':'s'} restantes`:''):'Encerrada em '+human(g.end)}</span></div>
+ <div class="bar ${st==='hit'?'g':''}" style="position:relative"><i style="width:${pct}%"></i></div>${st==='run'?`<div class="hint">Esperado até hoje: ${Math.round(exp*10)/10} ${esc(g.unit||'')} · ${human(g.start)} → ${human(g.end)}</div>`:''}
+ ${(g.checkpoints||[]).length?`<ul class="agl">${g.checkpoints.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4).map(c=>`<li><span class="datebadge">${c.date.split('-').reverse().slice(0,2).join('/')}</span><span>+${c.value} ${esc(c.note||'')}</span></li>`).join('')}</ul>`:''}
+ <div class="itemfoot w"><button class="btn sm pri" data-act="goal-cp" data-id="${g.id}">Registrar checkpoint</button><button class="btn sm" data-act="edit-goal" data-id="${g.id}">Editar</button><button class="btn sm danger" data-act="arm" data-do="del-goal" data-id="${g.id}">Excluir</button></div></div>`}
+function goalModal(g){const isNew=!g;g=g?clone(g):{id:uid(),gestorId:UI.g||'',title:'',projectId:UI.gProj,target:10,unit:'',start:today(),end:addDays(today(),30),checkpoints:[],createdAt:Date.now()};
+ openModal({title:isNew?'Nova meta':'Editar meta',draft:g,body:()=>`<label class="f">Meta *<input type="text" id="g-title" value="${esc(g.title)}" placeholder="Ex.: Otimizar anúncios do catálogo" autofocus></label>
+ <div class="grid3"><label class="f">Projeto<select id="g-proj">${projOpts(g.projectId)}</select></label><label class="f">Alvo<input type="number" id="g-target" min="1" value="${g.target}"></label><label class="f">Unidade<input type="text" id="g-unit" value="${esc(g.unit)}" placeholder="anúncios, vendas…"></label></div>
+ <div class="grid2"><label class="f">Início<input type="date" id="g-start" value="${g.start}"></label><label class="f">Prazo<input type="date" id="g-end" value="${g.end}"></label></div>`,
+ save(){const t=val('g-title'),tg=Number(val('g-target'));if(!t||!(tg>0)){toast('Preencha a meta e um alvo maior que zero.');return false}const s=val('g-start')||today(),e=val('g-end')||addDays(s,30);if(e<s){toast('O prazo precisa ser depois do início.');return false}
+  put('goals',{...M.draft,gestorId:projGes(val('g-proj'))||M.draft.gestorId||UI.g||'',title:t,projectId:val('g-proj'),target:tg,unit:val('g-unit'),start:s,end:e});toast(isNew?'Meta criada':'Meta salva')}})}
+function cpModal(id){const g=byId('goals',id);openModal({title:'Registrar checkpoint',sub:esc(g.title),body:()=>`<div class="grid2"><label class="f">Avanço (+)<input type="number" id="c-val" value="1" step="any" autofocus></label><label class="f">Data<input type="date" id="c-date" value="${today()}"></label></div><label class="f">Observação<input type="text" id="c-note" placeholder="Ex.: 5 anúncios da linha verão"></label>`,
+ save(){const v=Number(val('c-val'));if(!v){toast('Informe o avanço.');return false}const cur=byId('goals',id);patch('goals',id,{checkpoints:[...(cur.checkpoints||[]),{id:uid(),value:v,date:val('c-date')||today(),note:val('c-note')}]});toast('Checkpoint registrado')}})}
+
+// ---------- AUTOMATIONS ----------
+V.automacoes={head:()=>head('Fluxos internos','Automações','Crie tarefas automaticamente quando um novo projeto for criado.',`<button class="btn pri w" data-act="new-auto">${ic('plus')}Nova automação</button>`),
+body(){const logs=S.automations.flatMap(a=>(a.log||[]).map(l=>({...l,name:a.name}))).sort((a,b)=>b.at-a.at).slice(0,20);
+ return`<div class="split"><div class="sect">${S.automations.length?S.automations.map(a=>`<div class="item"><div class="spread"><span class="pill ${a.active===false?'off':'run'}">${a.active===false?'Desligada':'Ligada'}</span><label class="switch w"><input type="checkbox" data-chg="auto-active" data-id="${a.id}"${a.active===false?'':' checked'} aria-label="Ligada"></label></div>
+  <h3>${esc(a.name)}</h3><p>Quando um projeto for criado → criar ${(a.tasks||[]).length} tarefa${(a.tasks||[]).length===1?'':'s'} no quadro</p><ul class="agl">${(a.tasks||[]).slice(0,5).map(t=>`<li>${ic('plus')}<span>${esc(t.title)}</span></li>`).join('')}</ul>
+  <div class="itemfoot w"><button class="btn sm" data-act="edit-auto" data-id="${a.id}">Editar</button><button class="btn sm danger" data-act="arm" data-do="del-auto" data-id="${a.id}">Excluir</button></div></div>`).join(''):`<div class="empty"><h3>Nenhuma automação criada</h3><p>Monte um checklist padrão, como o onboarding de um novo cliente de marketplace, e ele vira tarefas sempre que um projeto nascer.</p><button class="btn pri w" data-act="new-auto">${ic('plus')}Criar primeira automação</button></div>`}</div>
+ <div class="panel"><div class="eyebrow">Histórico de execuções</div><h2>Últimas execuções</h2>${logs.length?`<ul class="agl" style="margin-top:10px">${logs.map(l=>`<li><span class="datebadge">${fmt(new Date(l.at)).split('-').reverse().slice(0,2).join('/')}</span><span><b>${esc(l.name)}</b> criou ${l.count} tarefa${l.count===1?'':'s'} em ${esc(l.project)}</span></li>`).join('')}</ul>`:`<p class="muted small">As execuções aparecem aqui quando um novo projeto usar uma automação.</p>`}</div></div>`}};
+const blankAT=()=>({title:'',desc:'',col:'week',rel:'',priority:'',label:'',checklist:[]});
+function autoModal(a){const isNew=!a;a=a?clone(a):{id:uid(),name:'',active:true,tasks:[blankAT()],log:[],createdAt:Date.now()};
+ const colOpts=sel=>[...FIXED,DONE].map(c=>`<option value="${c.k}"${c.k===sel?' selected':''}>${c.n}</option>`).join('');
+ openModal({title:isNew?'Nova automação':'Editar automação',wide:true,draft:a,body:()=>`<div class="grid2"><label class="f">Nome da automação<input type="text" id="a-name" value="${esc(a.name)}" placeholder="Checklist inicial do projeto" autofocus></label><div class="f" style="justify-content:flex-end"><label class="switch"><input type="checkbox" id="a-on"${a.active===false?'':' checked'}> Automação ligada</label></div></div>
+  <div class="preview"><b>Fluxo:</b> quando um projeto for criado → criar tarefa(s) no quadro. Use <span class="mono">[nome do projeto]</span> no título ou descrição.</div><div id="part-atasks" class="sect"></div>`,
+  parts:{atasks:d=>d.tasks.map((t,i)=>`<div class="atask"><div class="spread"><b>Tarefa ${i+1}</b>${d.tasks.length>1?`<button type="button" class="btn sm ghost" data-act="at-del" data-i="${i}">Remover</button>`:''}</div>
+   <div class="grid2"><label class="f">Título<input type="text" data-ti="${i}" data-f="title" value="${esc(t.title)}" placeholder="Ex.: Cadastrar acessos de [nome do projeto]"></label><label class="f">Coluna<select data-ti="${i}" data-f="col">${colOpts(t.col)}</select></label></div>
+   <label class="f">Descrição<textarea data-ti="${i}" data-f="desc" style="min-height:52px">${esc(t.desc)}</textarea></label>
+   <div class="grid3"><label class="f">Prazo relativo (dias)<input type="number" data-ti="${i}" data-f="rel" value="${t.rel??''}" placeholder="Pela coluna"></label><label class="f">Prioridade<select data-ti="${i}" data-f="priority">${priOpts(t.priority)}</select></label><label class="f">Etiqueta<select data-ti="${i}" data-f="label">${lblOpts(t.label)}</select></label></div>
+   <div class="f" style="font-size:12.5px;font-weight:600;color:var(--mut)">Checklist<div class="listed">${(t.checklist||[]).map((c,j)=>`<div class="li"><span>${esc(c)}</span><button type="button" class="iconbtn" data-act="atc-del" data-i="${i}" data-j="${j}" aria-label="Remover">${ic('x')}</button></div>`).join('')}</div><div class="inl"><input type="text" id="atc-${i}" placeholder="Adicionar item" data-enter-at="${i}"><button type="button" class="btn sm" data-act="atc-add" data-i="${i}">Adicionar</button></div></div>
+   <div class="preview muted small">Prévia: <b style="color:var(--fg)">${esc((t.title||'Tarefa').split('[nome do projeto]').join('Meu novo projeto'))}</b></div></div>`).join('')+`<button type="button" class="btn" data-act="at-add">${ic('plus')}Adicionar tarefa</button>`},
+  after(){$('#mform').addEventListener('input',e=>{const el=e.target;if(el.dataset.ti==null)return;M.draft.tasks[el.dataset.ti][el.dataset.f]=el.value;if(el.dataset.f==='title'){const pv=el.closest('.atask').querySelector('.preview b');pv.textContent=(el.value||'Tarefa').split('[nome do projeto]').join('Meu novo projeto')}})},
+  saveLabel:'Salvar automação',save(){const n=val('a-name');if(!n){toast('Dê um nome à automação.');return false}const tasks=M.draft.tasks.filter(t=>t.title.trim());if(!tasks.length){toast('Adicione ao menos uma tarefa com título.');return false}
+   put('automations',{...M.draft,name:n,active:val('a-on'),tasks});toast(isNew?'Automação criada':'Automação salva')}})}
+
+// ---------- TEMPLATES ----------
+V.modelos={head:()=>head('Biblioteca reutilizável','Modelos de tarefa','Salve rotinas da equipe e transforme um modelo em tarefa real sempre que precisar.',`<button class="btn pri w" data-act="new-tpl">${ic('plus')}Novo modelo</button>`),
+body(){if(!S.templates.length)return`<div class="empty"><h3>Nenhum modelo salvo ainda</h3><p>Crie uma rotina como “Revisão diária de anúncios” ou “Planejar campanha” uma vez e use quantas vezes quiser.</p><button class="btn pri w" data-act="new-tpl">${ic('plus')}Criar primeiro modelo</button></div>`;
+ return`<div class="cardsgrid">${S.templates.map(m=>`<div class="item"><h3>${esc(m.name)}</h3>${m.desc?`<p>${esc(m.desc)}</p>`:''}<div class="row">${m.projectId&&projName(m.projectId)?`<span class="chip proj">${esc(projName(m.projectId))}</span>`:''}${m.priority?`<span class="chip ${m.priority}">${PRI[m.priority]}</span>`:''}<span class="chip">${ic('list')}${(m.subtasks||[]).length} subtarefas</span>${(m.atts||[]).length?`<span class="chip">${ic('clip')}${m.atts.length}</span>`:''}<span class="chip">${ic('cal')}${m.dueOffset==='none'?'Sem prazo':m.dueOffset==0?'No dia':'+'+m.dueOffset+' dias'}</span></div>
+  <div class="itemfoot"><button class="btn sm pri w" data-act="use-tpl" data-id="${m.id}">Usar modelo</button><button class="btn sm w" data-act="edit-tpl" data-id="${m.id}">Editar</button><button class="btn sm danger w" data-act="arm" data-do="del-tpl" data-id="${m.id}">Excluir</button></div></div>`).join('')}</div>`}};
+function tplModal(m){const isNew=!m;m=m?clone(m):{id:uid(),name:'',desc:'',subtasks:[],projectId:'',priority:'',dueOffset:'0',status:'',atts:[],createdAt:Date.now()};
+ openModal({title:isNew?'Novo modelo de tarefa':'Editar modelo',draft:m,body:()=>`<label class="f">Nome do modelo<input type="text" id="tp-name" value="${esc(m.name)}" placeholder="Ex.: Revisão diária de anúncios" autofocus></label>
+ <label class="f">Instruções ou descrição<textarea id="tp-desc" placeholder="Ex.: Revisar métricas, registrar aprendizados e separar uma hipótese de teste.">${esc(m.desc)}</textarea></label>
+ <div class="box"><h4>Subtarefas do modelo</h4><span class="hint">Esses itens serão copiados como checklist quando você usar o modelo.</span><div id="part-subtasks"></div></div>
+ <div class="grid2"><label class="f">Projeto padrão<select id="tp-proj">${projOpts(m.projectId)}</select></label><label class="f">Prioridade padrão<select id="tp-pri">${priOpts(m.priority)}</select></label>
+ <label class="f">Prazo ao usar o modelo<select id="tp-due">${[['0','No dia em que eu usar o modelo'],['1','1 dia depois'],['3','3 dias depois'],['7','1 semana depois'],['14','2 semanas depois'],['none','Sem prazo']].map(([k,n])=>`<option value="${k}"${String(m.dueOffset)===k?' selected':''}>${n}</option>`).join('')}</select></label>
+ <label class="f">Status inicial<select id="tp-st"><option value="">Não iniciado</option><option value="focus"${m.status==='focus'?' selected':''}>Em foco</option></select></label></div>
+ <div class="box"><h4>Arquivos do modelo</h4><span class="hint">Ficam associados às tarefas criadas a partir deste modelo. Imagens e PDFs de até 8 MB.</span><div id="part-att"></div></div>`,
+ parts:{subtasks:listPart('subtasks','Nova subtarefa…',false),att:attPart},after:bindAtt,saveLabel:'Salvar modelo',
+ save(){const n=val('tp-name');if(!n){toast('Dê um nome ao modelo.');return false}const o={...M.draft,name:n,desc:val('tp-desc'),projectId:val('tp-proj'),priority:val('tp-pri'),dueOffset:val('tp-due'),status:val('tp-st')};delete o._up;put('templates',o);toast(isNew?'Modelo salvo':'Modelo atualizado')}})}
+
+// ---------- DOCUMENTS ----------
+const kind=d=>{const n=(d.name||'').toLowerCase();if(/\.(xlsx|xls|csv)$/.test(n))return'xls';if(/\.pdf$/.test(n)||d.type==='application/pdf')return'pdf';if((d.type||'').startsWith('image/'))return'img';return'oth'};
+const KN={xls:'Planilhas',pdf:'PDFs',img:'Imagens',oth:'Outros arquivos'};
+V.documentos={head:()=>head('Arquivos armazenados','Documentos','Guarde planilhas, PDFs e imagens da equipe e visualize planilhas direto aqui. Para editar online, informe o link do OneDrive ou Google Sheets.'),
+body(){const live=S.docs.filter(d=>!d.trashed),trash=S.docs.filter(d=>d.trashed);
+ let ds=UI.dLib==='trash'?trash:UI.dLib==='fav'?live.filter(d=>d.fav):live;if(UI.dFolder&&UI.dLib!=='trash')ds=ds.filter(d=>d.folder===UI.dFolder);if(UI.dType!=='all')ds=ds.filter(d=>kind(d)===UI.dType);ds=ds.slice().sort((a,b)=>b.createdAt-a.createdAt);
+ const title=UI.dLib==='trash'?'Lixeira':UI.dLib==='fav'?'Favoritos':UI.dFolder?esc(byId('folders',UI.dFolder)?.name||''):'Todos os documentos';
+ return`<div class="docs"><div class="lib"><div><div class="navlbl">Biblioteca</div>
+  <button class="li" data-act="dlib" data-k="all" aria-pressed="${UI.dLib==='all'&&!UI.dFolder}"><span>Todos os documentos</span><span class="mono">${live.length}</span></button>
+  <button class="li" data-act="dlib" data-k="fav" aria-pressed="${UI.dLib==='fav'}"><span>Favoritos</span><span class="mono">${live.filter(d=>d.fav).length}</span></button>
+  <button class="li" data-act="dlib" data-k="trash" aria-pressed="${UI.dLib==='trash'}"><span>Lixeira</span><span class="mono">${trash.length}</span></button></div>
+  <div><div class="spread"><div class="navlbl">Pastas</div><button class="iconbtn w" data-act="new-folder" aria-label="Nova pasta">${ic('plus')}</button></div>
+  ${S.folders.map(f=>`<button class="li fdrop" data-act="dfolder" data-id="${f.id}" aria-pressed="${UI.dFolder===f.id&&UI.dLib==='all'}"><span>${ic('folder')} ${esc(f.name)}</span><span class="mono">${live.filter(d=>d.folder===f.id).length}</span></button>`).join('')||'<p class="hint" style="margin:0 2px">Arraste um documento para uma pasta para organizá-lo.</p>'}</div></div>
+ <div class="sect">${UI.dLib!=='trash'?`<div class="dropzone w" id="dz">${assets?`<b>Arraste arquivos aqui</b> ou <label class="btn sm" style="margin-left:6px">Enviar documento<input type="file" id="docfile" multiple hidden accept=".xlsx,.xls,.csv,.pdf,image/*"></label><div class="hint" style="margin-top:8px">Planilhas XLSX, XLS ou CSV, PDFs e imagens até 10 MB.</div>
+   <div class="inl" style="max-width:520px;margin:10px auto 0"><input type="url" id="extlink" placeholder="Link externo de edição (opcional) — OneDrive, Google Sheets…" value="${esc(UI.extLink)}" aria-label="Link externo de edição"></div>`:`<b>Envio de arquivos</b><div class="hint">Entre na sua conta para enviar documentos.</div>`}</div>`:''}
+ <div class="spread"><div><h2 style="font:700 16px var(--fd);margin:0">${title}</h2><span class="small muted">${ds.length} ite${ds.length===1?'m':'ns'}</span></div>
+ <div class="tabs">${[['all','Todos'],['xls','Planilhas'],['pdf','PDFs'],['img','Imagens'],['oth','Outros']].map(([k,n])=>`<button data-act="dtype" data-k="${k}" aria-selected="${UI.dType===k}">${n}</button>`).join('')}</div></div>
+ ${ds.length?`<div class="doclist">${ds.map(d=>{const k=kind(d);return`<div class="docrow" draggable="${UI.dLib!=='trash'&&canWrite}" data-doc="${d.id}"><span class="ficon ${k}">${k==='xls'?(d.name.split('.').pop().toUpperCase()):k==='pdf'?'PDF':k==='img'?'IMG':'ARQ'}</span>
+  <div style="min-width:0"><div class="docname">${d.fav?`<span style="color:var(--amber)">★</span> `:''}${esc(d.name)}</div><div class="docmeta">${kb(d.size||0)} · ${human(fmt(new Date(d.createdAt)))}${d.folder&&byId('folders',d.folder)?' · '+esc(byId('folders',d.folder).name):''}</div></div>
+  <div class="row">${UI.dLib==='trash'?`<button class="btn sm w" data-act="doc-restore" data-id="${d.id}">Restaurar</button><button class="btn sm danger w" data-act="arm" data-do="doc-purge" data-id="${d.id}">Excluir de vez</button>`:
+   `<button class="btn sm" data-act="doc-view" data-id="${d.id}">Visualizar</button>${d.ext?`<a class="btn sm" href="${esc(d.ext)}" target="_blank" rel="noopener">Editar online</a>`:''}<div class="menuwrap"><button class="iconbtn" data-act="docmenu" data-id="${d.id}" aria-label="Mais ações">${ic('dots')}</button><div class="menu" ${UI.menu==='d'+d.id?'':'hidden'}>
+   <button data-act="doc-fav" data-id="${d.id}">${d.fav?'Remover dos favoritos':'Adicionar aos favoritos'}</button><button class="w" data-act="doc-link" data-id="${d.id}">Definir link de edição</button>${S.folders.map(f=>`<button class="w" data-act="doc-move" data-id="${d.id}" data-f="${f.id}">Mover para ${esc(f.name)}</button>`).join('')}${d.folder?`<button class="w" data-act="doc-move" data-id="${d.id}" data-f="">Tirar da pasta</button>`:''}<button class="w" data-act="doc-trash" data-id="${d.id}">Mover para a lixeira</button></div></div>`}</div></div>`}).join('')}</div>`
+  :`<div class="empty"><h3>${UI.dLib==='trash'?'A lixeira está vazia':'Nenhum documento aqui'}</h3><p>${UI.dLib==='trash'?'Documentos excluídos ficam aqui até serem removidos de vez.':'Envie uma planilha ou outro documento para começar.'}</p></div>`}</div></div>`},
+bind(){const dz=$('#dz'),fi=$('#docfile'),ex=$('#extlink');ex&&ex.addEventListener('input',e=>UI.extLink=e.target.value);
+ const up=fs=>{const ok=[...fs].filter(f=>{if(f.size>10*1048576){toast(f.name+' passa de 10 MB.');return false}return true});if(!ok.length||!assets)return;toast(`Enviando ${ok.length} arquivo(s)…`);
+  ok.forEach(async f=>{try{const r=await assets.upload(f);SU[r.id]=r.url;await put('docs',{id:uid(),name:f.name,type:f.type||r.contentType,size:f.size,assetId:r.id,folder:UI.dLib==='all'?UI.dFolder:'',fav:false,trashed:false,ext:UI.extLink.trim(),createdAt:Date.now()});toast(f.name+' enviado')}catch(e){toast('Não foi possível enviar '+f.name+'.')}});UI.extLink=''};
+ fi&&fi.addEventListener('change',()=>up(fi.files));
+ if(dz){dz.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();dz.classList.add('on')}});dz.addEventListener('dragleave',()=>dz.classList.remove('on'));dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('on');up(e.dataTransfer.files)})}
+ document.querySelectorAll('.docrow[draggable="true"]').forEach(r=>r.addEventListener('dragstart',e=>e.dataTransfer.setData('text/doc',r.dataset.doc)));
+ document.querySelectorAll('.fdrop').forEach(b=>{b.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('text/doc')){e.preventDefault();b.classList.add('drop')}});b.addEventListener('dragleave',()=>b.classList.remove('drop'));b.addEventListener('drop',e=>{e.preventDefault();b.classList.remove('drop');const id=e.dataTransfer.getData('text/doc');if(id){patch('docs',id,{folder:b.dataset.id});toast('Documento movido')}})})}};
+async function docView(id){const d=byId('docs',id);const k=kind(d);const url=U(d);
+ openModal({title:esc(d.name),wide:true,sub:`${kb(d.size||0)}${d.ext?` · <a href="${esc(d.ext)}" target="_blank" rel="noopener" style="color:var(--acc2)">Abrir no editor online</a>`:''}`,body:()=>k==='img'?`<img src="${esc(url)}" alt="${esc(d.name)}" style="border-radius:8px;max-height:70vh;object-fit:contain">`:k==='xls'?`<div id="xlsout"><p class="muted">Carregando planilha…</p></div>`:`<div class="empty"><h3>${k==='pdf'?'PDF':'Arquivo'}</h3><p>Abra o arquivo em uma nova aba para visualizar.</p><a class="btn pri" href="${esc(url)}" target="_blank" rel="noopener">Abrir ${esc(d.name)}</a></div>`});
+ if(k!=='xls')return;const out=$('#xlsout');
+ try{if(!window.XLSX)throw 0;const buf=await (await fetch(url)).arrayBuffer();const wb=XLSX.read(buf,{type:'array'});
+  const show=n=>{const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,defval:''}).slice(0,300);const w=Math.max(1,...rows.map(r=>r.length));const col=i=>{let s='';i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+   out.querySelector('.sheet').innerHTML=`<table><thead><tr><th></th>${Array.from({length:w},(_,i)=>`<th>${col(i)}</th>`).join('')}</tr></thead><tbody>${rows.map((r,ri)=>`<tr><th>${ri+1}</th>${Array.from({length:w},(_,i)=>`<td>${esc(r[i]??'')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+   out.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.s===n))};
+  out.innerHTML=`${wb.SheetNames.length>1?`<div class="tabs" style="margin-bottom:10px">${wb.SheetNames.map(n=>`<button type="button" data-s="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}<div class="sheet"></div><p class="hint">Mostrando até 300 linhas.</p>`;
+  out.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>show(b.dataset.s)));show(wb.SheetNames[0]);
+ }catch(e){out.innerHTML=`<p class="muted">Não foi possível ler esta planilha aqui. <a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--acc2)">Abrir o arquivo</a></p>`}}
+function nameModal(title,label,initial,onSave){openModal({title,body:()=>`<label class="f">${label}<input type="text" id="n-val" value="${esc(initial||'')}" autofocus></label>`,save(){const v=val('n-val');if(!v){toast('Preencha o campo.');return false}onSave(v)}})}
+
+// ---------- GESTORES ----------
+V.gestores={head:()=>head('Equipe','Gestores','Cada gestor tem o próprio quadro. Escolha um gestor em “Visão” para ver só o trabalho dele, ou acompanhe todos por aqui.',`<button class="btn pri w" data-act="new-ges">${ic('plus')}Novo gestor</button>`),
+body(){const t=today(),wk=Date.now()-7*864e5;
+ const rows=[...S.gestores.slice().sort((a,b)=>a.name.localeCompare(b.name)),{id:'',name:'Sem gestor',none:true}].map(g=>{const T=S.tasks.filter(x=>(x.gestorId||'')===g.id&&(g.id||!x.gestorId||!gesName(x.gestorId)));const open=T.filter(x=>!x.done);
+  return{g,open:open.length,late:open.filter(x=>x.due&&x.due<t).length,today:open.filter(x=>x.due===t).length,week:T.filter(x=>x.done&&x.doneAt>=wk).length,proj:S.projects.filter(p=>(p.gestorId||'')===g.id).length,inbox:S.inbox.filter(x=>(x.gestorId||'')===g.id&&x.status!=='done'&&x.status!=='discarded').length}}).filter(r=>!r.g.none||r.open||r.proj||r.inbox);
+ if(!S.gestores.length)return`<div class="empty"><h3>Cadastre os gestores da equipe</h3><p>Depois de cadastrar, cada tarefa, projeto e demanda pode ter um gestor responsável. Cada gestor abre o link e vê o próprio quadro.</p><button class="btn pri w" data-act="new-ges">${ic('plus')}Cadastrar primeiro gestor</button></div>`;
+ return`<div class="sect"><div class="panel" style="overflow-x:auto"><table class="gtable"><thead><tr><th>Gestor</th><th class="n">Abertas</th><th class="n">Vencidas</th><th class="n">Para hoje</th><th class="n">Concluídas 7 dias</th><th class="n">Projetos</th><th class="n">Demandas</th><th></th></tr></thead><tbody>
+ ${rows.map(r=>`<tr><td><b>${esc(r.g.name)}</b>${myGestor===r.g.id?' <span class="chip ok">Você</span>':''}</td><td class="n">${r.open}</td><td class="n" style="color:${r.late?'var(--red)':'inherit'}">${r.late}</td><td class="n">${r.today}</td><td class="n">${r.week}</td><td class="n">${r.proj}</td><td class="n">${r.inbox}</td><td style="text-align:right">${r.g.none?'':`<button class="btn sm" data-act="ges-open" data-id="${r.g.id}">Abrir quadro</button>`}</td></tr>`).join('')}</tbody></table></div>
+ ${pendingAccounts()}<div class="cardsgrid">${S.gestores.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(g=>{const acc=profiles.filter(p=>p.gestor_id===g.id);return`<div class="item"><div class="spread"><h3>${esc(g.name)}</h3>${acc.length?`<span class="pill hit">Conta ligada</span>`:'<span class="pill off">Sem conta</span>'}</div>
+  ${acc.length?`<ul class="agl">${acc.map(p=>`<li>${ic('check')}<span>${esc(p.email||'')}${p.role==='admin'?' (administrador)':''}</span>${p.role!=='admin'?`<button class="btn sm ghost" data-act="acc-unlink" data-id="${p.user_id}">Desligar</button>`:''}</li>`).join('')}</ul>`:`<p>O gestor cria a conta no link do quadro e aparece aqui para você ligar ao nome dele.</p>`}
+  ${profiles.some(p=>!p.gestor_id&&p.role!=='admin')?`<label class="f">Ligar conta<select data-chg="acc-link" data-id="${g.id}"><option value="">Escolha um e-mail…</option>${profiles.filter(p=>!p.gestor_id&&p.role!=='admin').map(p=>`<option value="${p.user_id}">${esc(p.email||'')}</option>`).join('')}</select></label>`:''}
+  <div class="itemfoot"><button class="btn sm pri" data-act="ges-open" data-id="${g.id}">Abrir quadro</button><button class="btn sm w" data-act="edit-ges" data-id="${g.id}">Renomear</button><button class="btn sm danger w" data-act="arm" data-do="del-ges" data-id="${g.id}">Excluir</button></div></div>`}).join('')}</div></div>`}};
+function pendingAccounts(){const p=profiles.filter(x=>!x.gestor_id&&x.role!=='admin');if(!p.length)return'';return`<div class="panel" style="border-color:var(--amber)"><div class="eyebrow" style="color:var(--amber)">Aguardando liberação</div><h2>${p.length} conta${p.length>1?'s':''} sem gestor</h2><p class="muted small" style="margin:4px 0 0">${p.map(x=>esc(x.email||'')).join(', ')}. Ligue cada conta ao gestor certo no cartão abaixo para liberar o quadro dela.</p></div>`}
+async function loadProfiles(){if(!isAdmin)return;const{data}=await sb.from('profiles').select('user_id,email,role,gestor_id').order('created_at');profiles=data||[];schedule()}
+
+// ---------- ENTRADA (demandas) ----------
+V.entrada={head:()=>head('Demandas de clientes','Entrada','Cole aqui a mensagem que o cliente mandou no WhatsApp e transforme em tarefa com um clique.'),
+body(){const pend=S.inbox.filter(x=>inG(x)&&x.status!=='done'&&x.status!=='discarded').sort((a,b)=>b.createdAt-a.createdAt);const done=S.inbox.filter(x=>inG(x)&&x.status==='done').sort((a,b)=>b.createdAt-a.createdAt).slice(0,8);
+ return`<div class="split"><div class="sect"><div class="panel w"><div class="eyebrow">Nova demanda</div><h2>Colar mensagem do cliente</h2>
+  <div class="sect" style="margin-top:12px"><div class="grid2"><label class="f">Cliente ou contato<input type="text" id="in-from" placeholder="Ex.: Loja Aurora (11 9…)"></label><label class="f">Gestor<select id="in-ges"${isAdmin?'':' disabled'}>${gesOpts(UI.g)}</select></label></div>
+  <label class="f">Mensagem<textarea id="in-text" style="min-height:120px" placeholder="Cole a conversa do WhatsApp aqui"></textarea></label>
+  <div class="row"><button class="btn pri" data-act="in-add">${ic('plus')}Adicionar à entrada</button>${sample?`<button class="btn" data-act="in-add-ai">Adicionar e já criar tarefa</button>`:''}</div></div></div>
+  <div class="small muted">${pend.length} demanda${pend.length===1?'':'s'} aguardando</div>
+  ${pend.length?pend.map(x=>`<div class="item"><div class="spread"><div class="mtitle"><span class="datebadge">${new Date(x.createdAt).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><h3>${esc(x.from||'Cliente')}</h3></div>${x.gestorId&&gesName(x.gestorId)?`<span class="chip ges">${esc(gesName(x.gestorId))}</span>`:''}</div><div class="inbox-msg">${esc(x.text)}</div>
+   <div class="itemfoot w">${sample?`<button class="btn sm pri" data-act="in-ai" data-id="${x.id}">Criar tarefa com Claude</button>`:''}<button class="btn sm${sample?'':' pri'}" data-act="in-manual" data-id="${x.id}">Criar tarefa manualmente</button><button class="btn sm danger" data-act="arm" data-do="in-discard" data-id="${x.id}">Descartar</button></div></div>`).join('')
+  :`<div class="empty"><h3>Nenhuma demanda aguardando</h3><p>As mensagens coladas aqui ficam na fila até alguém transformar em tarefa.</p></div>`}</div>
+ <div class="sect"><div class="panel"><div class="eyebrow">WhatsApp</div><h2>Como chegam as demandas</h2><p class="muted small" style="margin:6px 0 0">Hoje: copie a mensagem no WhatsApp e cole ao lado. Para as mensagens entrarem sozinhas, o número precisa estar em um serviço de WhatsApp Business com API. Essa conexão pode ser ligada depois sem mudar o quadro: as demandas continuam caindo nesta mesma fila.</p></div>
+ <div class="panel"><div class="eyebrow">Histórico</div><h2>Viraram tarefa</h2>${done.length?`<ul class="agl" style="margin-top:10px">${done.map(x=>{const t=byId('tasks',x.taskId);return`<li>${ic('check')}<span><b>${esc(x.from||'Cliente')}</b> → ${t?`<button class="btn sm ghost" style="padding:0 4px" data-act="open-task-id" data-id="${t.id}">${esc(t.title)}</button>`:'tarefa excluída'}</span></li>`}).join('')}</ul>`:'<p class="muted small">As demandas convertidas aparecem aqui.</p>'}</div></div></div>`}};
+async function inboxToTask(id,useAI,btn){const x=byId('inbox',id);if(!x)return;
+ let base={title:'Demanda de '+(x.from||'cliente'),desc:x.text,due:today(),priority:'',projectId:''};
+ if(useAI&&sample){if(btn){btn.disabled=true;btn.textContent='Lendo a mensagem…'}
+  const projs=S.projects.filter(p=>!x.gestorId||p.gestorId===x.gestorId||!p.gestorId).map(p=>p.name);
+  try{const r=await sample.json(`Você organiza demandas de clientes de uma agência de marketplace. Hoje é ${today()} (${DSEM[new Date().getDay()]}). Leia a mensagem do cliente e responda só com um objeto JSON: {"title": título curto e acionável em português (máx. 70 caracteres), "desc": descrição objetiva do que precisa ser feito com os detalhes da mensagem, "due": data de entrega no formato AAAA-MM-DD se o cliente indicar prazo (calcule datas relativas como "amanhã" ou "sexta") ou null, "priority": "alta", "media", "baixa" ou "", "project": o nome exato do projeto da lista que corresponde a este cliente, ou null}.\nProjetos: ${JSON.stringify(projs)}\nCliente/contato: ${x.from||'não informado'}\nMensagem:\n${x.text}`,{modelTier:'quick'});
+   if(r&&typeof r==='object'){const pr=S.projects.find(p=>p.name===r.project);base={title:String(r.title||base.title).slice(0,120),desc:String(r.desc||'')+'\n\n— Mensagem original —\n'+x.text,due:/^\d{4}-\d{2}-\d{2}$/.test(r.due||'')?r.due:null,priority:['alta','media','baixa'].includes(r.priority)?r.priority:'',projectId:pr?pr.id:''}}}
+  catch(e){toast(e&&e.code==='not_granted'?'Sem permissão para usar o Claude nesta página.':'Não consegui ler a mensagem. Preencha a tarefa manualmente.')}
+  if(btn&&btn.isConnected){btn.disabled=false;btn.textContent='Criar tarefa com Claude'}}
+ taskModal(newTask({...base,gestorId:x.gestorId||projGes(base.projectId)||'',label:'Cliente',inboxId:x.id}),true)}
+
+// ---------- actions ----------
+const ACT={
+ 'new-ges':()=>nameModal('Novo gestor','Nome do gestor','',n=>{put('gestores',{id:uid(),name:n,userId:null,createdAt:Date.now()});toast('Gestor cadastrado')}),
+ 'edit-ges':el=>{const g=byId('gestores',el.dataset.id);nameModal('Renomear gestor','Nome do gestor',g.name,n=>patch('gestores',g.id,{name:n}))},
+ 'ges-open':el=>{setG(el.dataset.id);go('kanban')},
+ 'acc-unlink':async el=>{const{error}=await sb.from('profiles').update({gestor_id:null}).eq('user_id',el.dataset.id);if(error)toast('Não foi possível desligar a conta.');else{toast('Conta desligada');loadProfiles()}},
+ 'in-add':()=>inAdd(false),'in-add-ai':el=>inAdd(true,el),
+ 'in-ai':el=>inboxToTask(el.dataset.id,true,el),'in-manual':el=>inboxToTask(el.dataset.id,false),
+ 'open-task-id':el=>{const t=byId('tasks',el.dataset.id);t&&taskModal(t,false)},
+ go:el=>{closeModal();go(el.dataset.r)},
+ newmenu:(el,e)=>{e.stopPropagation();const m=$('#newmenu');m.hidden=!m.hidden},
+ 'new-task':()=>taskModal(newTask({projectId:UI.proj}),true),
+ 'new-from-tpl':()=>tplPicker(),
+ 'use-tpl':el=>useTpl(el.dataset.id),
+ 'new-col':()=>nameModal('Nova coluna','Nome da coluna','',n=>{put('columns',{id:uid(),name:n,order:Date.now()});toast('Coluna criada')}),
+ colmenu:(el,e)=>{e.stopPropagation();UI.menu=UI.menu===el.dataset.k?null:el.dataset.k;renderBody()},
+ 'col-rename':el=>{const c=byId('columns',el.dataset.k);UI.menu=null;nameModal('Renomear coluna','Nome da coluna',c.name,n=>patch('columns',c.id,{name:n}))},
+ 'col-del':el=>{const id=el.dataset.k;UI.menu=null;S.tasks.filter(t=>t.col===id).forEach(t=>patch('tasks',t.id,{col:null}));del('columns',id);toast('Coluna excluída. As tarefas voltaram para a coluna do prazo.')},
+ 'add-in':el=>{const k=el.dataset.k;const c=allCols().find(x=>x.k===k);const p={projectId:UI.proj};if(k==='done')Object.assign(p,{done:true,doneAt:Date.now(),due:today()});else if(byId('columns',k))Object.assign(p,{col:k,due:null});else p.due=dueFor(k);taskModal(newTask(p),true,c.n)},
+ 'open-task':el=>{const t=byId('tasks',el.dataset.id);t&&taskModal(t,false)},
+ 'toggle-done':(el,e)=>{e.stopPropagation();if(!canWrite)return;const t=byId('tasks',el.dataset.id);patch('tasks',t.id,{done:!t.done,doneAt:t.done?null:Date.now()});if(!t.done)toast('Tarefa concluída')},
+ 'new-rec':()=>recModal(),'edit-rec':el=>recModal(byId('recurring',el.dataset.id)),
+ 'new-proj':()=>projModal(),'edit-proj':el=>projModal(byId('projects',el.dataset.id)),
+ 'proj-board':el=>{UI.proj=el.dataset.id;saveUI();go('kanban')},'proj-meet':el=>{UI.mProj=el.dataset.id;go('reunioes')},
+ 'new-meet':()=>meetModal(),'edit-meet':el=>meetModal(byId('meetings',el.dataset.id)),
+ mproj:el=>{UI.mProj=el.dataset.id;renderBody()},
+ 'meet-arch':el=>{const m=byId('meetings',el.dataset.id);patch('meetings',m.id,{archived:!m.archived});toast(m.archived?'Reunião desarquivada':'Reunião arquivada')},
+ 'agr-tog':el=>{if(!canWrite)return;const m=byId('meetings',el.dataset.id);const a=clone(m.agreements);a[el.dataset.i].done=!a[el.dataset.i].done;patch('meetings',m.id,{agreements:a})},
+ 'new-goal':()=>goalModal(),'edit-goal':el=>goalModal(byId('goals',el.dataset.id)),'goal-cp':el=>cpModal(el.dataset.id),
+ gtab:el=>{UI.gTab=el.dataset.k;renderBody()},
+ 'new-auto':()=>autoModal(),'edit-auto':el=>autoModal(byId('automations',el.dataset.id)),
+ 'at-add':()=>{M.draft.tasks.push(blankAT());refresh('atasks')},'at-del':el=>{M.draft.tasks.splice(el.dataset.i,1);refresh('atasks')},
+ 'atc-add':el=>{const i=el.dataset.i;const inp=$('#atc-'+i);if(!inp.value.trim())return;M.draft.tasks[i].checklist=[...(M.draft.tasks[i].checklist||[]),inp.value.trim()];refresh('atasks');$('#atc-'+i).focus()},
+ 'atc-del':el=>{M.draft.tasks[el.dataset.i].checklist.splice(el.dataset.j,1);refresh('atasks')},
+ 'new-tpl':()=>tplModal(),'edit-tpl':el=>tplModal(byId('templates',el.dataset.id)),
+ dlib:el=>{UI.dLib=el.dataset.k;UI.dFolder='';renderBody()},dfolder:el=>{UI.dLib='all';UI.dFolder=el.dataset.id;renderBody()},dtype:el=>{UI.dType=el.dataset.k;renderBody()},
+ 'new-folder':()=>nameModal('Nova pasta','Nome da pasta','',n=>{put('folders',{id:uid(),name:n,createdAt:Date.now()});toast('Pasta criada')}),
+ docmenu:(el,e)=>{e.stopPropagation();const k='d'+el.dataset.id;UI.menu=UI.menu===k?null:k;renderBody()},
+ 'doc-view':el=>docView(el.dataset.id),
+ 'doc-fav':el=>{UI.menu=null;const d=byId('docs',el.dataset.id);patch('docs',d.id,{fav:!d.fav})},
+ 'doc-move':el=>{UI.menu=null;patch('docs',el.dataset.id,{folder:el.dataset.f});toast('Documento movido')},
+ 'doc-link':el=>{UI.menu=null;const d=byId('docs',el.dataset.id);nameModal('Link de edição online','Link do OneDrive, Google Sheets ou outro editor',d.ext,v=>patch('docs',d.id,{ext:v}))},
+ 'doc-trash':el=>{UI.menu=null;patch('docs',el.dataset.id,{trashed:true});toast('Movido para a lixeira')},
+ 'doc-restore':el=>{patch('docs',el.dataset.id,{trashed:false});toast('Documento restaurado')},
+ 'list-add':el=>listAdd(el.dataset.key),
+ 'list-del':el=>{M.draft[el.dataset.key].splice(el.dataset.i,1);refresh(el.dataset.key)},
+ 'list-tog':el=>{const it=M.draft[el.dataset.key][el.dataset.i];it.done=!it.done;refresh(el.dataset.key)},
+ 'att-del':el=>{M.draft.atts.splice(el.dataset.i,1);refresh('att')},
+ close:()=>closeModal(),
+ scrim:(el,e)=>{if(e.target===el)closeModal()},
+ msave:async el=>{if(el.disabled)return;el.disabled=true;const r=await M.save();if(r===false){el.disabled=false;return}closeModal()},
+ arm:el=>{if(!el.dataset.armed){el.dataset.armed='1';const o=el.textContent;el.textContent='Confirmar exclusão';setTimeout(()=>{if(el.isConnected){delete el.dataset.armed;el.textContent=o}},3500);return}DO[el.dataset.do](el.dataset.id)}
+};
+const DO={
+ 'del-ges':id=>{del('gestores',id);if(UI.g===id)setG('');toast('Gestor excluído. As tarefas dele ficam sem gestor.')},
+ 'in-discard':id=>{patch('inbox',id,{status:'discarded'});toast('Demanda descartada')},
+ 'del-task':id=>{closeModal();del('tasks',id);toast('Tarefa excluída')},
+ 'del-rec':id=>{del('recurring',id);toast('Recorrência excluída. As tarefas já criadas continuam no quadro.')},
+ 'del-proj':id=>{del('projects',id);if(UI.proj===id)UI.proj='';toast('Projeto excluído. As tarefas continuam no quadro, sem projeto.')},
+ 'del-meet':id=>{del('meetings',id);toast('Reunião excluída')},
+ 'del-goal':id=>{del('goals',id);toast('Meta excluída')},
+ 'del-auto':id=>{del('automations',id);toast('Automação excluída')},
+ 'del-tpl':id=>{del('templates',id);toast('Modelo excluído')},
+ 'doc-purge':async id=>{const d=byId('docs',id);del('docs',id);if(assets&&d.assetId){try{await assets.delete(d.assetId)}catch(e){}}toast('Documento excluído de vez')}
+};
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');
+  if(UI.menu&&!e.target.closest('.menu')&&!(el&&/menu$/.test(el.dataset.act))){UI.menu=null;renderBody()}
+  const nm=$('#newmenu');if(nm&&!nm.hidden&&!(el&&el.dataset.act==='newmenu'))nm.hidden=true;
+  if(!el)return;const f=ACT[el.dataset.act];if(f){if(el.tagName==='BUTTON'||el.dataset.act==='open-task'||el.dataset.act==='scrim')f(el,e)}});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&M){closeModal();return}
+  if(e.key==='Enter'&&e.target.dataset?.enter){e.preventDefault();listAdd(e.target.dataset.enter);return}
+  if(e.key==='Enter'&&e.target.dataset?.enterAt!=null){e.preventDefault();ACT['atc-add']({dataset:{i:e.target.dataset.enterAt}});return}
+  if(e.key==='Enter'&&e.target.classList?.contains('card')){ACT['open-task'](e.target)}
+  if(e.key==='Enter'&&M&&e.target.tagName==='INPUT'&&e.target.closest('#mform')&&!e.target.dataset.enter&&e.target.type!=='file'){e.preventDefault()}});
+document.addEventListener('change',async e=>{const el=e.target;if(el.dataset.chg==='acc-link'&&el.value){const{error}=await sb.from('profiles').update({gestor_id:el.dataset.id}).eq('user_id',el.value);if(error)toast('Não foi possível ligar a conta.');else{toast('Conta ligada a '+gesName(el.dataset.id));loadProfiles()}return}if(el.dataset.chg==='rec-active'){patch('recurring',el.dataset.id,{active:el.checked}).then(runRecurring)}else if(el.dataset.chg==='auto-active'){patch('automations',el.dataset.id,{active:el.checked})}});
+
+async function inAdd(ai,btn){const text=val('in-text');if(!text){toast('Cole a mensagem do cliente.');return}
+ const id=await put('inbox',{id:uid(),text,from:val('in-from'),gestorId:val('in-ges'),status:'new',source:'manual',createdAt:Date.now()});
+ $('#in-text').value='';$('#in-from').value='';toast('Demanda adicionada à entrada');if(ai)inboxToTask(id,true,btn)}
+document.addEventListener('change',e=>{if(e.target.id==='gview')setG(e.target.value)});
+
+// ---------- boot ----------
+$('#nav').innerHTML=navHtml();
+const h=(location.hash||'').slice(1);UI.route=ROUTES.some(r=>r[0]===h)?h:'kanban';$('#nav').innerHTML=navHtml();buildView();
+
+const authUI={mode:'in'};
+function showAuth(state,msg){const A=$('#auth');A.hidden=false;const pend=state==='pending';
+ $('#authtitle').textContent=pend?'Aguardando liberação':authUI.mode==='up'?'Criar conta':'Entrar no quadro';
+ $('#authsub').textContent=pend?`Sua conta (${me?.email||''}) foi criada. Peça para o administrador ligar o seu e-mail ao seu nome na tela Gestores. Depois, recarregue esta página.`:authUI.mode==='up'?'Crie sua conta com o seu e-mail. Depois o administrador libera o seu quadro.':'Use o e-mail e a senha da sua conta da equipe.';
+ ['authemailwrap','authpasswrap','authgo','authswap','authhint'].forEach(id=>$('#'+id).hidden=pend);$('#authout').hidden=!pend;
+ $('#authgo').textContent=authUI.mode==='up'?'Criar conta':'Entrar';$('#authswaptxt').textContent=authUI.mode==='up'?'Já tem conta?':'Primeiro acesso?';$('#authtoggle').textContent=authUI.mode==='up'?'Entrar':'Criar conta';
+ $('#authpass').autocomplete=authUI.mode==='up'?'new-password':'current-password';$('#autherr').textContent=msg||''}
+$('#authlogo').src=document.querySelector('.brand .logo').src;
+$('#authtoggle').addEventListener('click',()=>{authUI.mode=authUI.mode==='up'?'in':'up';showAuth()});
+$('#authout').addEventListener('click',async()=>{await sb.auth.signOut();location.reload()});
+$('#authform').addEventListener('submit',async e=>{e.preventDefault();const email=$('#authemail').value.trim(),password=$('#authpass').value;
+ if(!email||password.length<6){$('#autherr').textContent='Informe o e-mail e uma senha com pelo menos 6 caracteres.';return}
+ const btn=$('#authgo');btn.disabled=true;$('#autherr').textContent='';
+ try{const r=authUI.mode==='up'?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
+  if(r.error){const m=r.error.message||'';$('#autherr').textContent=/invalid login/i.test(m)?'E-mail ou senha incorretos.':/already registered/i.test(m)?'Este e-mail já tem conta. Use “Entrar”.':/password/i.test(m)?'A senha precisa ter pelo menos 6 caracteres.':/email/i.test(m)&&/confirm/i.test(m)?'Confirme o e-mail antes de entrar.':'Não foi possível entrar: '+m;return}
+  if(authUI.mode==='up'&&!r.data.session){$('#autherr').textContent='Conta criada. Confira seu e-mail para confirmar o cadastro e depois entre.';authUI.mode='in';return}
+  await start(r.data.session)}finally{btn.disabled=false}});
+async function start(session){
+ if(!session){showAuth();return}
+ me=session.user;meId=me.id;
+ let prof=null;for(let i=0;i<3&&!prof;i++){const{data}=await sb.from('profiles').select('role,gestor_id,email').eq('user_id',me.id).maybeSingle();prof=data;if(!prof)await new Promise(r=>setTimeout(r,700))}
+ isAdmin=prof?.role==='admin';myGestor=prof?.gestor_id||null;
+ if(!isAdmin&&!myGestor){showAuth('pending');return}
+ $('#auth').hidden=true;mode='db';
+ assets={upload:async f=>{const ext=((f.name||'').split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,6)||'bin';const path=`${myGestor||'admin'}/${uid()}.${ext}`;
+   const{error}=await sb.storage.from('anexos').upload(path,f,{contentType:f.type||undefined,upsert:false});if(error)throw error;const{data}=await sb.storage.from('anexos').createSignedUrl(path,43200);return{id:path,url:data?.signedUrl,contentType:f.type}},
+  delete:async id=>{await sb.storage.from('anexos').remove([id])}};
+ if(!isAdmin){UI.g=myGestor}else if(!UI.gSet){UI.g=''}
+ setSync('','Carregando…',me.email||'');
+ const rows=[];for(let from=0;;from+=1000){const{data,error}=await sb.from('items').select('col,id,data').range(from,from+999);if(error){setSync('warn','Erro ao carregar','Recarregue a página');return}rows.push(...data);if(data.length<1000)break}
+ COLS.forEach(c=>S[c]=[]);rows.forEach(r=>{if(S[r.col])S[r.col].push({...r.data,id:r.id})});
+ sb.channel('items-live').on('postgres_changes',{event:'*',schema:'public',table:'items'},p=>{
+   if(p.eventType==='DELETE'){const o=p.old||{};if(o.col&&S[o.col])S[o.col]=S[o.col].filter(x=>x.id!==o.id)}
+   else{const n=p.new;if(n&&S[n.col])upsertLocal(n.col,{...n.data,id:n.id})}
+   schedule();refreshUrls()}).subscribe(st=>{if(st==='SUBSCRIBED')setSync('ok',isAdmin?'Administrador':gesName(myGestor)||'Gestor',me.email||'');else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT')setSync('warn','Sem atualização ao vivo','Recarregue para ver mudanças')});
+ setSync('ok',isAdmin?'Administrador':gesName(myGestor)||'Gestor',me.email||'');
+ lastG='';renderGSel();$('#nav').innerHTML=navHtml();if(UI.route==='gestores'&&!isAdmin)UI.route='kanban';buildView();
+ loadProfiles();refreshUrls();runRecurring();setInterval(runRecurring,30*60*1000);setInterval(()=>{Object.keys(SU).forEach(k=>delete SU[k]);refreshUrls()},6*3600*1000)}
+document.getElementById('sync').addEventListener('click',async e=>{if(e.target.closest('.out')){await sb.auth.signOut();location.reload()}});
+const _ss=setSync;setSync=function(k,t,sub){_ss(k,t,sub);if(mode==='db'){const el=$('#sync');el.insertAdjacentHTML('beforeend','<button class="btn sm ghost out" type="button">Sair</button>')}};
+async function boot(){const{data}=await sb.auth.getSession();await start(data.session)}
+boot();
+})();
+</script>
+</body>
+</html>
