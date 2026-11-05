@@ -381,7 +381,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 <body>
 <div class="app" id="app">
   <aside class="side">
-    <a class="brand" href="#kanban" aria-label="MDO Assessoria">
+    <a class="brand" href="#entrada" data-act="go" data-r="entrada" aria-label="MDO Assessoria — ir para a Entrada">
       <img class="logo" src="https://painel.assessoriamdo.com/static/logo-branca-200.png" alt="MDO Assessoria" width="99" height="40">
     </a>
     <div class="gsel"><label for="gview">Visão</label><select id="gview" aria-label="Ver quadro de"></select></div>
@@ -505,11 +505,12 @@ function bucket(t){
 function dueFor(k){const t=today(),s=daysToSun();return{over:addDays(t,-1),today:t,week:addDays(t,Math.max(s,1)),next:addDays(t,s+1),two:addDays(t,s+8),nodue:null}[k]}
 const allCols=()=>[...FIXED,...S.columns.slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(c=>({k:c.id,n:c.name,c:'var(--acc2)',custom:true})),DONE];
 const projName=id=>byId('projects',id)?.name||'';
-const gesName=id=>byId('gestores',id)?.name||'';
+const PID=()=>meId?'pessoal-'+meId:'';const isPers=id=>typeof id==='string'&&id.startsWith('pessoal-');
+const gesName=id=>isPers(id)?'Minhas tarefas':(byId('gestores',id)?.name||'');
 const projGes=pid=>byId('projects',pid)?.gestorId||'';
-const inG=o=>!UI.g||o.gestorId===UI.g;
-const inGP=o=>!UI.g||o.gestorId===UI.g||(o.projectId&&projGes(o.projectId)===UI.g);
-const gesOpts=(sel,empty='Sem gestor')=>`<option value="">${empty}</option>`+S.gestores.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(g=>`<option value="${g.id}"${g.id===sel?' selected':''}>${esc(g.name)}</option>`).join('');
+const inG=o=>UI.g?o.gestorId===UI.g:!isPers(o.gestorId);
+const inGP=o=>UI.g?(o.gestorId===UI.g||(o.projectId&&projGes(o.projectId)===UI.g)):!isPers(o.gestorId);
+const gesOpts=(sel,empty='Sem gestor')=>!isAdmin?S.gestores.filter(g=>g.id===myGestor).map(g=>`<option value="${g.id}" selected>${esc(g.name)}</option>`).join(''):`<option value="">${empty}</option>`+(PID()?`<option value="${PID()}"${sel===PID()?' selected':''}>Minhas tarefas (pessoal)</option>`:'')+S.gestores.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(g=>`<option value="${g.id}"${g.id===sel?' selected':''}>${esc(g.name)}</option>`).join('');
 const projOpts=(sel,empty='Sem projeto')=>`<option value="">${empty}</option>`+S.projects.filter(p=>inG(p)||p.id===sel).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${p.id}"${p.id===sel?' selected':''}>${esc(p.name)}</option>`).join('');
 const priOpts=sel=>Object.entries(PRI).map(([k,v])=>`<option value="${k}"${k===(sel||'')?' selected':''}>${v}</option>`).join('');
 const lblOpts=sel=>`<option value="">Nenhuma</option>`+LBL.map(l=>`<option${l===sel?' selected':''}>${l}</option>`).join('');
@@ -545,16 +546,17 @@ function applyAutomation(aId,project){
 
 // ---------- UI state & routing ----------
 const ROUTES=[
- ['kanban','Kanban','kanban'],['entrada','Entrada','inbox'],['gestores','Gestores','users'],['metricas','Métricas','chart'],['recorrentes','Recorrentes','repeat'],['projetos','Projetos','folder'],
+ ['kanban','Kanban','kanban'],['pessoal','Minhas tarefas','check'],['entrada','Entrada','inbox'],['gestores','Gestores','users'],['metricas','Métricas','chart'],['recorrentes','Recorrentes','repeat'],['projetos','Projetos','folder'],
  ['reunioes','Reuniões','chat'],['metas','Metas','target'],['automacoes','Automações','bolt'],['modelos','Modelos','tpl'],['documentos','Documentos','file']];
 const UI={g:'',gSet:false,route:'kanban',q:'',proj:'',pri:'',mProj:'',mPeriod:'all',mArch:false,gTab:'run',gProj:'',gPeriod:30,dLib:'all',dType:'all',dFolder:'',extLink:'',menu:null};
 try{const r=JSON.parse(localStorage.getItem(LS+'-ui')||'{}');['proj','pri','gPeriod','mPeriod','g'].forEach(k=>{if(r[k]!=null)UI[k]=r[k]});if(r.g!=null)UI.gSet=true}catch(e){}
 const saveUI=()=>{try{localStorage.setItem(LS+'-ui',JSON.stringify({proj:UI.proj,pri:UI.pri,gPeriod:UI.gPeriod,mPeriod:UI.mPeriod,g:UI.g}))}catch(e){}};
 
-function navHtml(){const RT=isAdmin?ROUTES:ROUTES.filter(r=>r[0]!=='gestores');const pend=S.inbox.filter(x=>x.status!=='done'&&x.status!=='discarded'&&inG(x)).length;return RT.map(([k,n,i])=>`<button data-act="go" data-r="${k}"${UI.route===k?' aria-current="page"':''}>${ic(i)}<span>${n}</span>${k==='entrada'&&pend?`<b class="badge">${pend}</b>`:''}</button>`).join('')}
+function navHtml(){const RT=isAdmin?ROUTES:ROUTES.filter(r=>r[0]!=='gestores'&&r[0]!=='pessoal');const cur=UI.route==='kanban'&&isPers(UI.g)?'pessoal':UI.route;const pend=S.inbox.filter(x=>x.status!=='done'&&x.status!=='discarded'&&inG(x)).length;return RT.map(([k,n,i])=>`<button data-act="go" data-r="${k}"${cur===k?' aria-current="page"':''}>${ic(i)}<span>${n}</span>${k==='entrada'&&pend?`<b class="badge">${pend}</b>`:''}</button>`).join('')}
 let lastG='';function renderGSel(){const el=$('#gview');el.closest('.gsel').hidden=!isAdmin;const key=JSON.stringify(S.gestores.map(g=>[g.id,g.name]))+UI.g;if(key===lastG)return;lastG=key;el.innerHTML=gesOpts(UI.g,'Todos os gestores');el.value=UI.g}
 function setG(id){if(!isAdmin)id=myGestor||'';UI.g=id;UI.gSet=true;UI.proj='';UI.mProj='';UI.gProj='';saveUI();renderGSel();buildView()}
-function go(r){if(!ROUTES.some(x=>x[0]===r)||(r==='gestores'&&!isAdmin))r='kanban';UI.route=r;UI.menu=null;try{history.replaceState(null,'','#'+r)}catch(e){}$('#nav').innerHTML=navHtml();buildView()}
+function go(r){if(r==='pessoal'){if(isAdmin&&PID()){UI.g=PID();UI.proj='';saveUI();renderGSel()}r='kanban'}else if(isAdmin&&isPers(UI.g)&&r!=='kanban'){UI.g='';saveUI();renderGSel()}
+ if(!ROUTES.some(x=>x[0]===r)||(r==='gestores'&&!isAdmin))r='kanban';UI.route=r;UI.menu=null;try{history.replaceState(null,'','#'+r)}catch(e){}$('#nav').innerHTML=navHtml();buildView()}
 
 let rq=0;function schedule(){if(rq)return;rq=requestAnimationFrame(()=>{rq=0;renderGSel();$('#nav').innerHTML=navHtml();renderBody()})}
 
@@ -565,13 +567,13 @@ function renderBody(){const v=V[UI.route];const vb=$('#vb');if(!vb)return;
   const st=vb.querySelector('.board')?.scrollLeft;vb.innerHTML=v.body();if(st)vb.querySelector('.board').scrollLeft=st;v.bind&&v.bind()}
 
 // ---------- KANBAN ----------
-V.kanban={
-head:()=>head('Planejamento diário','Quadro Kanban','Organize o foco da equipe por prazo, cliente e progresso.',
- `<div class="menuwrap w"><button class="btn pri" data-act="newmenu">${ic('plus')}Nova tarefa${ic('chev')}</button><div class="menu" id="newmenu" hidden><button data-act="new-task">Tarefa em branco</button><button data-act="new-from-tpl">A partir de um modelo</button></div></div>
-  <button class="btn w" data-act="new-col">${ic('plus')}Nova coluna</button>`)+
- `<div class="toolbar"><label class="search">${ic('search')}<input id="q" type="text" placeholder="Buscar por tarefa ou descrição…" value="${esc(UI.q)}" aria-label="Buscar tarefas"></label>
+const KACTS=()=>`<div class="menuwrap w"><button class="btn pri" data-act="newmenu">${ic('plus')}Nova tarefa${ic('chev')}</button><div class="menu" id="newmenu" hidden><button data-act="new-task">Tarefa em branco</button><button data-act="new-from-tpl">A partir de um modelo</button></div></div>
+  <button class="btn w" data-act="new-col">${ic('plus')}Nova coluna</button>`;
+const KTOOL=()=> `<div class="toolbar"><label class="search">${ic('search')}<input id="q" type="text" placeholder="Buscar por tarefa ou descrição…" value="${esc(UI.q)}" aria-label="Buscar tarefas"></label>
   <select id="fproj" aria-label="Filtrar por projeto">${projOpts(UI.proj,'Todos os projetos')}</select>
-  <select id="fpri" aria-label="Filtrar por prioridade"><option value="">Todas as prioridades</option>${['alta','media','baixa'].map(k=>`<option value="${k}"${UI.pri===k?' selected':''}>${PRI[k]}</option>`).join('')}</select></div>`,
+  <select id="fpri" aria-label="Filtrar por prioridade"><option value="">Todas as prioridades</option>${['alta','media','baixa'].map(k=>`<option value="${k}"${UI.pri===k?' selected':''}>${PRI[k]}</option>`).join('')}</select></div>`;
+V.kanban={
+head:()=>(isPers(UI.g)?head('Só você vê','Minhas tarefas','Suas tarefas pessoais, organizadas por prazo. Os gestores não têm acesso a esta aba.',KACTS()):head('Planejamento diário','Quadro Kanban','Organize o foco da equipe por prazo, cliente e progresso.',KACTS()))+KTOOL(),
 after(){
   $('#q').addEventListener('input',e=>{UI.q=e.target.value;schedule()});
   $('#fproj').addEventListener('change',e=>{UI.proj=e.target.value;saveUI();schedule()});
@@ -647,7 +649,7 @@ function taskModal(t,isNew,hint){
   const d=clone(t);const rec=d.recurringId?byId('recurring',d.recurringId):null;
   openModal({title:isNew?(hint?`Adicionar tarefa em “${esc(hint)}”`:'Nova tarefa'):'Editar tarefa',sub:isNew&&hint?'O prazo foi preenchido com base nesta coluna. Você pode alterá-lo antes de criar.':'',draft:d,saveLabel:isNew?'Criar tarefa':'Salvar alterações',
   body:()=>`<label class="f">Título *<input type="text" id="t-title" value="${esc(d.title)}" autofocus required></label>
-   <div class="grid3"><label class="f">Gestor<select id="t-ges">${gesOpts(d.gestorId)}</select></label><label class="f">Projeto (opcional)<select id="t-proj">${projOpts(d.projectId)}</select></label>
+   <div class="grid3"><label class="f">Gestor<select id="t-ges"${isAdmin?'':' disabled'}>${gesOpts(d.gestorId)}</select></label><label class="f">Projeto (opcional)<select id="t-proj">${projOpts(d.projectId)}</select></label>
    <label class="f">Data de entrega<input type="date" id="t-due" value="${d.due||''}"><span class="hint">Deixe em branco para “Sem prazo”.</span></label></div>
    <div class="grid3"><label class="f">Prioridade<select id="t-pri">${priOpts(d.priority)}</select></label><label class="f">Etiqueta<select id="t-lbl">${lblOpts(d.label)}</select></label>
    <label class="f">Status<select id="t-st"><option value="">Não iniciado</option><option value="focus"${d.focus?' selected':''}>Em foco</option><option value="done"${d.done?' selected':''}>Concluído</option></select></label></div>
@@ -703,7 +705,7 @@ body(){if(!S.recurring.filter(inG).length)return`<div class="empty"><h3>Nenhuma 
   <div class="small muted">${nx?`Próxima: <b style="color:var(--fg)">${longDate(nx)}</b>`:'Pausada'}</div><div class="itemfoot w"><button class="btn sm" data-act="edit-rec" data-id="${r.id}">Editar</button><button class="btn sm danger" data-act="arm" data-do="del-rec" data-id="${r.id}">Excluir</button></div></div>`}).join('')}</div>`}};
 function recModal(r){const isNew=!r;r=r?clone(r):{id:uid(),gestorId:UI.g||'',title:'',desc:'',projectId:'',priority:'',label:'',freq:'weekly',weekday:new Date().getDay(),monthday:new Date().getDate(),active:true,subtasks:[],createdAt:Date.now()};
  openModal({title:isNew?'Nova recorrência':'Editar recorrência',draft:r,body:()=>`<label class="f">Título da tarefa *<input type="text" id="r-title" value="${esc(r.title)}" placeholder="Ex.: Relatório semanal do cliente" autofocus></label><label class="f">Descrição<textarea id="r-desc">${esc(r.desc)}</textarea></label>
-  <label class="f">Gestor<select id="r-ges">${gesOpts(r.gestorId)}</select></label><div class="grid3"><label class="f">Projeto<select id="r-proj">${projOpts(r.projectId)}</select></label><label class="f">Prioridade<select id="r-pri">${priOpts(r.priority)}</select></label><label class="f">Etiqueta<select id="r-lbl">${lblOpts(r.label)}</select></label></div>
+  <label class="f">Gestor<select id="r-ges"${isAdmin?'':' disabled'}>${gesOpts(r.gestorId)}</select></label><div class="grid3"><label class="f">Projeto<select id="r-proj">${projOpts(r.projectId)}</select></label><label class="f">Prioridade<select id="r-pri">${priOpts(r.priority)}</select></label><label class="f">Etiqueta<select id="r-lbl">${lblOpts(r.label)}</select></label></div>
   <div class="grid3"><label class="f">Frequência<select id="r-freq"><option value="daily"${r.freq==='daily'?' selected':''}>Diária</option><option value="weekly"${r.freq==='weekly'?' selected':''}>Semanal</option><option value="monthly"${r.freq==='monthly'?' selected':''}>Mensal</option></select></label><label class="f">Dia da semana<select id="r-wd">${DSEM.map((n,i)=>`<option value="${i}"${r.weekday==i?' selected':''}>${n}</option>`).join('')}</select></label><label class="f">Dia do mês<input type="number" id="r-md" min="1" max="31" value="${r.monthday||1}"></label></div>
   <div class="box"><h4>Checklist de cada cópia</h4><div id="part-subtasks"></div></div>`,parts:{subtasks:listPart('subtasks','Novo item…',false)},
   save(){const t=val('r-title');if(!t){toast('Dê um título à recorrência.');return false}put('recurring',{...M.draft,gestorId:val('r-ges')||projGes(val('r-proj')),title:t,desc:val('r-desc'),projectId:val('r-proj'),priority:val('r-pri'),label:val('r-lbl'),freq:val('r-freq'),weekday:Number(val('r-wd')),monthday:Number(val('r-md'))||1}).then(runRecurring);toast(isNew?'Recorrência criada':'Recorrência salva')}})}
@@ -717,7 +719,7 @@ body(){if(!S.projects.filter(inG).length)return`<div class="empty"><h3>Comece pe
   <div class="itemfoot"><button class="btn sm" data-act="proj-board" data-id="${p.id}">Ver no quadro</button><button class="btn sm" data-act="proj-meet" data-id="${p.id}">Reuniões</button><button class="btn sm w" data-act="edit-proj" data-id="${p.id}">Editar</button><button class="btn sm danger w" data-act="arm" data-do="del-proj" data-id="${p.id}">Excluir</button></div></div>`}).join('')}</div>`}};
 function projModal(p){const isNew=!p;p=p?clone(p):{id:uid(),gestorId:UI.g||'',name:'',desc:'',createdAt:Date.now()};const act=S.automations.filter(a=>a.active!==false);
  openModal({title:isNew?'Criar novo projeto':'Editar projeto',draft:p,body:()=>`<label class="f">Nome do projeto *<input type="text" id="p-name" value="${esc(p.name)}" placeholder="Ex.: Loja Aurora — Shopee" autofocus></label>
-  <label class="f">Gestor responsável<select id="p-ges">${gesOpts(p.gestorId)}</select></label>
+  <label class="f">Gestor responsável<select id="p-ges"${isAdmin?'':' disabled'}>${gesOpts(p.gestorId)}</select></label>
   <label class="f">Descrição do projeto<textarea id="p-desc" placeholder="Acessos, links, escopo e observações importantes…">${esc(p.desc)}</textarea><span class="hint">Explique o objetivo, os acessos ou as informações importantes deste projeto.</span></label>
   ${isNew?`<div class="box"><h4>Aplicar automação de checklist</h4>${act.length?`<select id="p-auto"><option value="">Não aplicar</option>${act.map((a,i)=>`<option value="${a.id}"${i===0?' selected':''}>${esc(a.name)} (${(a.tasks||[]).length} tarefas)</option>`).join('')}</select>`:`<span class="hint">Nenhuma automação ativa. Crie uma na aba Automações.</span>`}</div>`:''}`,
   saveLabel:isNew?'Criar':'Salvar',save(){const n=val('p-name');if(!n){toast('Dê um nome ao projeto.');return false}const o={...M.draft,name:n,desc:val('p-desc'),gestorId:val('p-ges')};put('projects',o);
@@ -909,7 +911,7 @@ const ACT={
  'in-add':()=>inAdd(false),'in-add-ai':el=>inAdd(true,el),
  'in-ai':el=>inboxToTask(el.dataset.id,true,el),'in-manual':el=>inboxToTask(el.dataset.id,false),
  'open-task-id':el=>{const t=byId('tasks',el.dataset.id);t&&taskModal(t,false)},
- go:el=>{closeModal();go(el.dataset.r)},
+ go:el=>{closeModal();if(el.dataset.r==='kanban'&&isAdmin&&isPers(UI.g)){UI.g='';saveUI();renderGSel()}go(el.dataset.r)},
  newmenu:(el,e)=>{e.stopPropagation();const m=$('#newmenu');m.hidden=!m.hidden},
  'new-task':()=>taskModal(newTask({projectId:UI.proj}),true),
  'new-from-tpl':()=>tplPicker(),
@@ -968,7 +970,7 @@ const DO={
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');
   if(UI.menu&&!e.target.closest('.menu')&&!(el&&/menu$/.test(el.dataset.act))){UI.menu=null;renderBody()}
   const nm=$('#newmenu');if(nm&&!nm.hidden&&!(el&&el.dataset.act==='newmenu'))nm.hidden=true;
-  if(!el)return;const f=ACT[el.dataset.act];if(f){if(el.tagName==='BUTTON'||el.dataset.act==='open-task'||el.dataset.act==='scrim')f(el,e)}});
+  if(!el)return;const f=ACT[el.dataset.act];if(f){if(el.classList.contains('brand')){e.preventDefault();f(el,e);return}if(el.tagName==='BUTTON'||el.dataset.act==='open-task'||el.dataset.act==='scrim')f(el,e)}});
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&M){closeModal();return}
   if(e.key==='Enter'&&e.target.dataset?.enter){e.preventDefault();listAdd(e.target.dataset.enter);return}
